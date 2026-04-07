@@ -16,6 +16,13 @@ a {
 .cm-editor {
   background-color: transparent !important;
   color: inherit !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.cm-editor.cm-focused {
+  border: none !important;
+  outline: none !important;
 }
 
 .cm-editor .cm-content {
@@ -24,4 +31,13 @@ a {
 
 .cm-editor .cm-cursor {
   border-left-color: currentColor;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.cm-live-spin {
+  animation: spin 1s linear infinite;
 }

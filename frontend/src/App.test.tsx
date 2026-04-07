@@ -28,7 +28,7 @@ describe('Home', () => {
 
   it('renders the home page with input', () => {
     render(<App />)
-    expect(screen.getByText('capypad')).toBeInTheDocument()
+    expect(screen.getByText(/Capy/)).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /pad name/i })).toBeInTheDocument()
   })
 

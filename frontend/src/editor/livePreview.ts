@@ -8,6 +8,8 @@ import {
 } from '@codemirror/view'
 import { type EditorState, type Range } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
 const hideMark = Decoration.replace({})
 
@@ -34,6 +36,127 @@ class HrWidget extends WidgetType {
   }
 }
 
+class KatexInlineWidget extends WidgetType {
+  latex: string
+  constructor(latex: string) { super(); this.latex = latex }
+
+  eq(other: KatexInlineWidget) { return this.latex === other.latex }
+
+  toDOM() {
+    const span = document.createElement('span')
+    span.className = 'cm-live-katex-inline'
+    try {
+      katex.render(this.latex, span, { throwOnError: false, displayMode: false })
+    } catch {
+      span.textContent = this.latex
+    }
+    return span
+  }
+}
+
+class KatexBlockWidget extends WidgetType {
+  latex: string
+  constructor(latex: string) { super(); this.latex = latex }
+
+  eq(other: KatexBlockWidget) { return this.latex === other.latex }
+
+  toDOM() {
+    const div = document.createElement('div')
+    div.className = 'cm-live-katex-block'
+    try {
+      katex.render(this.latex, div, { throwOnError: false, displayMode: true })
+    } catch {
+      div.textContent = this.latex
+    }
+    return div
+  }
+}
+
+class ImageWidget extends WidgetType {
+  imageId: string | null
+  view: EditorView
+  from: number
+  to: number
+  padPath: string
+
+  constructor(imageId: string | null, view: EditorView, from: number, to: number, padPath: string) {
+    super()
+    this.imageId = imageId
+    this.view = view
+    this.from = from
+    this.to = to
+    this.padPath = padPath
+  }
+
+  eq(other: ImageWidget) {
+    return this.imageId === other.imageId && this.from === other.from && this.to === other.to
+  }
+
+  toDOM() {
+    const wrapper = document.createElement('span')
+    wrapper.className = 'cm-live-image-upload'
+
+    if (!this.imageId) {
+      const label = document.createElement('label')
+      label.className = 'cm-live-image-upload-btn'
+      label.textContent = 'Upload image'
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.style.display = 'none'
+      const { view, from, to, padPath } = this
+      input.addEventListener('change', () => {
+        const file = input.files?.[0]
+        if (!file) return
+        if (file.size > 10 * 1024 * 1024) {
+          label.textContent = 'Max 10MB. Try another file.'
+          return
+        }
+        const formData = new FormData()
+        formData.append('file', file)
+        label.textContent = 'Uploading...'
+        label.classList.add('cm-live-image-uploading')
+        fetch(`/api/pad/${padPath}/images`, { method: 'POST', body: formData })
+          .then(r => r.json())
+          .then((data: { imageId: string }) => {
+            view.dispatch({
+              changes: { from, to, insert: `\\image[${data.imageId}]` }
+            })
+          })
+          .catch(() => {
+            label.textContent = 'Upload failed. Try again.'
+            label.classList.remove('cm-live-image-uploading')
+          })
+      })
+      label.appendChild(input)
+      wrapper.appendChild(label)
+    } else {
+      const container = document.createElement('span')
+      container.className = 'cm-live-image-container'
+      const img = document.createElement('img')
+      img.src = `/api/images/${this.imageId}`
+      img.className = 'cm-live-image'
+      img.alt = 'Uploaded image'
+      const deleteBtn = document.createElement('button')
+      deleteBtn.className = 'cm-live-image-delete'
+      deleteBtn.textContent = '\u00d7'
+      deleteBtn.title = 'Delete image'
+      const { view, from, to, imageId } = this
+      deleteBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        fetch(`/api/images/${imageId}`, { method: 'DELETE' }).then(() => {
+          view.dispatch({ changes: { from, to, insert: '' } })
+        })
+      })
+      container.appendChild(img)
+      container.appendChild(deleteBtn)
+      wrapper.appendChild(container)
+    }
+    return wrapper
+  }
+}
+
 function getCursorLines(state: EditorState): Set<number> {
   const lines = new Set<number>()
   for (const range of state.selection.ranges) {
@@ -46,10 +169,88 @@ function getCursorLines(state: EditorState): Set<number> {
   return lines
 }
 
-function buildDecorations(view: EditorView): DecorationSet {
-  const cursorLines = getCursorLines(view.state)
+function isOnCursorLines(from: number, to: number, cursorLines: Set<number>, doc: any): boolean {
+  const lineStart = doc.lineAt(from).number
+  const lineEnd = doc.lineAt(to).number
+  for (let i = lineStart; i <= lineEnd; i++) {
+    if (cursorLines.has(i)) return true
+  }
+  return false
+}
+
+function addImageDecorations(
+  doc: string, docObj: any, cursorLines: Set<number>,
+  decorations: Range<Decoration>[], view: EditorView, padPath: string
+) {
+  const imageRegex = /\\image(?:\[([^\]]+)\])?/g
+  let match
+  while ((match = imageRegex.exec(doc)) !== null) {
+    const from = match.index
+    const to = from + match[0].length
+    if (isOnCursorLines(from, to, cursorLines, docObj)) continue
+    const imageId = match[1] || null
+    decorations.push(
+      Decoration.replace({
+        widget: new ImageWidget(imageId, view, from, to, padPath),
+      }).range(from, to)
+    )
+  }
+}
+
+function addLatexDecorations(doc: string, docObj: any, cursorLines: Set<number>, decorations: Range<Decoration>[]) {
+  // Block math: $$...$$
+  const blockRegex = /\$\$([^$]+?)\$\$/g
+  let match
+  while ((match = blockRegex.exec(doc)) !== null) {
+    const from = match.index
+    const to = from + match[0].length
+    if (isOnCursorLines(from, to, cursorLines, docObj)) continue
+    decorations.push(
+      Decoration.replace({
+        widget: new KatexBlockWidget(match[1].trim()),
+        block: true,
+      }).range(from, to)
+    )
+  }
+
+  // Inline math: $...$  (but not $$)
+  const inlineRegex = /(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)/g
+  while ((match = inlineRegex.exec(doc)) !== null) {
+    const from = match.index
+    const to = from + match[0].length
+    if (isOnCursorLines(from, to, cursorLines, docObj)) continue
+    decorations.push(
+      Decoration.replace({
+        widget: new KatexInlineWidget(match[1]),
+      }).range(from, to)
+    )
+  }
+}
+
+function getImageRanges(doc: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  const regex = /\\image(?:\[([^\]]+)\])?/g
+  let match
+  while ((match = regex.exec(doc)) !== null) {
+    ranges.push([match.index, match.index + match[0].length])
+  }
+  return ranges
+}
+
+function isInImageRange(from: number, to: number, imageRanges: Array<[number, number]>): boolean {
+  for (const [start, end] of imageRanges) {
+    if (from < end && to > start) return true
+  }
+  return false
+}
+
+function buildDecorations(view: EditorView, padPath: string): DecorationSet {
+  const focused = view.hasFocus
+  const cursorLines = focused ? getCursorLines(view.state) : new Set<number>()
   const decorations: Range<Decoration>[] = []
   const tree = syntaxTree(view.state)
+  const docText = view.state.doc.toString()
+  const imageRanges = getImageRanges(docText)
 
   tree.iterate({
     enter(node) {
@@ -74,7 +275,6 @@ function buildDecorations(view: EditorView): DecorationSet {
 
       // Hide heading marks (# symbols + space)
       if (node.name === 'HeaderMark') {
-        // Hide the mark and trailing space
         const after = node.to
         const nextChar = view.state.doc.sliceString(after, after + 1)
         const end = nextChar === ' ' ? after + 1 : after
@@ -84,7 +284,6 @@ function buildDecorations(view: EditorView): DecorationSet {
 
       // Bold
       if (node.name === 'StrongEmphasis') {
-        // Find and hide the ** markers
         const text = view.state.doc.sliceString(node.from, node.to)
         const markerLen = text.startsWith('**') ? 2 : 1
         decorations.push(hideMark.range(node.from, node.from + markerLen))
@@ -111,11 +310,9 @@ function buildDecorations(view: EditorView): DecorationSet {
         return false
       }
 
-      // Links [text](url) — just style the text part
+      // Links [text](url)
       if (node.name === 'Link') {
-        // Hide [ before text
         decorations.push(hideMark.range(node.from, node.from + 1))
-        // Find ](url) part and hide it
         const urlPart = view.state.doc.sliceString(node.from, node.to)
         const closeBracket = urlPart.indexOf('](')
         if (closeBracket !== -1) {
@@ -155,27 +352,60 @@ function buildDecorations(view: EditorView): DecorationSet {
     },
   })
 
+  // LaTeX (regex-based, since markdown parser doesn't know about $)
+  addLatexDecorations(docText, view.state.doc, cursorLines, decorations)
+
+  // Filter out tree/latex decorations that overlap with \image ranges, then add image widgets
+  const filtered = imageRanges.length > 0
+    ? decorations.filter(d => !isInImageRange(d.from, d.to, imageRanges))
+    : decorations
+  const final = imageRanges.length > 0 ? filtered : decorations
+  addImageDecorations(docText, view.state.doc, cursorLines, final, view, padPath)
+
   // Sort by position (required by CodeMirror)
-  decorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide)
-  return Decoration.set(decorations)
+  final.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide)
+  return Decoration.set(final)
 }
 
-export const livePreview = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet
+export function createLivePreview(config: { padPath: string }) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet
+      retryTimer: ReturnType<typeof setTimeout> | null = null
 
-    constructor(view: EditorView) {
-      this.decorations = buildDecorations(view)
-    }
-
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.selectionSet || update.viewportChanged) {
-        this.decorations = buildDecorations(update.view)
+      constructor(view: EditorView) {
+        this.decorations = buildDecorations(view, config.padPath)
+        this.scheduleRetry(view)
       }
-    }
-  },
-  { decorations: (v) => v.decorations }
-)
+
+      update(update: ViewUpdate) {
+        this.decorations = buildDecorations(update.view, config.padPath)
+        if (update.docChanged) {
+          this.scheduleRetry(update.view)
+        }
+        if (update.focusChanged) {
+          this.decorations = buildDecorations(update.view, config.padPath)
+        }
+      }
+
+      scheduleRetry(view: EditorView, attempts = 5) {
+        if (this.retryTimer) clearTimeout(this.retryTimer)
+        if (attempts <= 0) return
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null
+          const treeReady = syntaxTree(view.state).length >= view.state.doc.length
+          view.dispatch({})
+          if (!treeReady) this.scheduleRetry(view, attempts - 1)
+        }, 150)
+      }
+
+      destroy() {
+        if (this.retryTimer) clearTimeout(this.retryTimer)
+      }
+    },
+    { decorations: (v) => v.decorations }
+  )
+}
 
 export const livePreviewTheme = EditorView.baseTheme({
   '.cm-live-h1': { fontSize: '2em', fontWeight: '700', lineHeight: '1.3' },
@@ -207,5 +437,73 @@ export const livePreviewTheme = EditorView.baseTheme({
     border: 'none',
     borderTop: '2px solid rgba(120, 113, 108, 0.3)',
     margin: '8px 0',
+  },
+  '.cm-live-katex-inline': {
+    display: 'inline',
+    verticalAlign: 'baseline',
+  },
+  '.cm-live-katex-block': {
+    display: 'block',
+    textAlign: 'center',
+    padding: '8px 0',
+  },
+  '.cm-live-image-upload': {
+    display: 'block',
+    padding: '8px 0',
+  },
+  '.cm-live-image-upload-btn': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '10px 20px',
+    border: '2px dashed rgba(120, 113, 108, 0.3)',
+    borderRadius: '8px',
+    color: 'rgba(120, 113, 108, 0.7)',
+    cursor: 'pointer',
+    fontSize: '0.9em',
+    transition: 'border-color 0.2s, color 0.2s',
+    '&:hover': {
+      borderColor: 'rgba(120, 113, 108, 0.6)',
+      color: 'rgba(120, 113, 108, 1)',
+    },
+  },
+  '.cm-live-image-uploading': {
+    opacity: '0.6',
+    pointerEvents: 'none',
+  },
+  '.cm-live-spin': {
+    animation: 'spin 1s linear infinite',
+  },
+  '.cm-live-image-container': {
+    position: 'relative',
+    display: 'inline-block',
+    maxWidth: '100%',
+  },
+  '.cm-live-image': {
+    maxWidth: '100%',
+    maxHeight: '500px',
+    borderRadius: '6px',
+    display: 'block',
+  },
+  '.cm-live-image-delete': {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    border: 'none',
+    background: 'rgba(0,0,0,0.55)',
+    color: '#fff',
+    fontSize: '16px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: '0',
+    transition: 'opacity 0.2s',
+  },
+  '.cm-live-image-container:hover .cm-live-image-delete': {
+    opacity: '1',
   },
 })

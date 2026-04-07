@@ -1,5 +1,6 @@
 package com.capypad.pad;
 
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
@@ -9,29 +10,56 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Path("/api/pad")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class PadResource {
 
+    private static final Pattern IMAGE_REF = Pattern.compile("\\\\image\\[([^\\]]+)\\]");
+
+    @Inject
+    ImageStorageService storage;
+
     @GET
     @Path("/{path}")
     public PadDto get(@PathParam("path") String path) {
-        Pad pad = Pad.findByPath(path);
-        return new PadDto(path, pad != null ? pad.content : "");
+        String normalized = path.toLowerCase();
+        Pad pad = Pad.findByPath(normalized);
+        return new PadDto(normalized, pad != null ? pad.content : "");
     }
 
     @PUT
     @Path("/{path}")
     @Transactional
     public PadDto put(@PathParam("path") String path, PadDto dto) {
-        Pad pad = Pad.findByPath(path);
+        String normalized = path.toLowerCase();
+        Pad pad = Pad.findByPath(normalized);
         if (pad == null) {
             pad = new Pad();
-            pad.path = path;
+            pad.path = normalized;
         }
         pad.content = dto.content();
         pad.persist();
-        return new PadDto(path, pad.content);
+
+        // Clean up orphaned images
+        Set<String> referenced = new HashSet<>();
+        Matcher m = IMAGE_REF.matcher(pad.content);
+        while (m.find()) referenced.add(m.group(1));
+
+        List<PadImage> allImages = PadImage.findByPadPath(normalized);
+        for (PadImage img : allImages) {
+            if (!referenced.contains(img.imageId)) {
+                storage.delete(img.imageId);
+                img.delete();
+            }
+        }
+
+        return new PadDto(normalized, pad.content);
     }
 }
