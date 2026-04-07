@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.cm-editor .ͼ1i,
+.cm-editor .ͼ1j,
+.cm-editor [class*="tok-heading"] {
+  text-decoration: none !important;
+}
+
+.cm-editor {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.cm-editor .cm-content {
+  color: inherit;
+}
+
+.cm-editor .cm-cursor {
+  border-left-color: currentColor;
+}
