@@ -33,10 +33,12 @@ const blurOnMount = ViewPlugin.fromClass(class {
 
 const cleanTheme = EditorView.theme({
   '&': { height: '100%', fontSize: '15px', backgroundColor: 'transparent', border: 'none', outline: 'none' },
-  '.cm-scroller': { fontFamily: 'system-ui, sans-serif', lineHeight: '1.7', padding: '16px 48px 60px' },
-  '.cm-content': { caretColor: 'currentColor' },
+  '.cm-scroller': { fontFamily: 'system-ui, sans-serif', lineHeight: '1.7', padding: '16px 0 60px' },
+  '.cm-content': { caretColor: 'currentColor', padding: '0 48px 0 16px' },
   '.cm-focused': { outline: 'none' },
-  '.cm-gutters': { display: 'none' },
+  '.cm-gutters': { backgroundColor: 'transparent', border: 'none', paddingLeft: '16px' },
+  '.cm-lineNumbers .cm-gutterElement': { color: 'rgba(128,128,128,0.5)', fontSize: '13px', minWidth: '3ch', paddingRight: '12px', textAlign: 'right' },
+  '.cm-activeLineGutter .cm-gutterElement, .cm-lineNumbers .cm-gutterElement.cm-activeLineGutter': { color: 'rgba(128,128,128,0.9)' },
   '.cm-activeLineGutter': { backgroundColor: 'transparent' },
   '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-line': { padding: '1px 0' },
@@ -161,7 +163,7 @@ export default function PadCodeEditor({ value, onChange, dark, padPath, onEditor
       theme={'none' as 'light'}
       className={dark ? 'dark' : ''}
       basicSetup={{
-        lineNumbers: false,
+        lineNumbers: true,
         foldGutter: false,
         highlightActiveLine: false,
         highlightSelectionMatches: false,

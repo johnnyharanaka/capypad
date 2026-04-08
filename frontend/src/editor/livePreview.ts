@@ -565,9 +565,13 @@ export const livePreviewTheme = EditorView.baseTheme({
     textAlign: 'center',
     padding: '8px 0',
   },
+  '.cm-line:has(.cm-live-image-upload)': {
+    lineHeight: '0',
+    padding: '0',
+  },
   '.cm-live-image-upload': {
     display: 'block',
-    padding: '8px 0',
+    padding: '0 0 8px 0',
   },
   '.cm-live-image-upload-btn': {
     display: 'inline-flex',
