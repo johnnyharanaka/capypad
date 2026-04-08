@@ -24,9 +24,14 @@ const headingLine: Record<number, Decoration> = {
 
 const boldMark = Decoration.mark({ class: 'cm-live-bold' })
 const italicMark = Decoration.mark({ class: 'cm-live-italic' })
+const underlineMark = Decoration.mark({ class: 'cm-live-underline' })
+const strikethroughMark = Decoration.mark({ class: 'cm-live-strikethrough' })
 const codeMark = Decoration.mark({ class: 'cm-live-code' })
 const linkMark = Decoration.mark({ class: 'cm-live-link' })
 const quoteLine = Decoration.line({ class: 'cm-live-blockquote' })
+const alignCenter = Decoration.line({ class: 'cm-live-align-center' })
+const alignRight = Decoration.line({ class: 'cm-live-align-right' })
+const alignJustify = Decoration.line({ class: 'cm-live-align-justify' })
 
 class HrWidget extends WidgetType {
   toDOM() {
@@ -197,6 +202,43 @@ function addImageDecorations(
   }
 }
 
+function addInlineDecorations(doc: string, docObj: any, cursorLines: Set<number>, decorations: Range<Decoration>[]) {
+  // Underline: <u>...</u>
+  const uRegex = /<u>(.*?)<\/u>/g
+  let m
+  while ((m = uRegex.exec(doc)) !== null) {
+    const from = m.index
+    const to = from + m[0].length
+    if (isOnCursorLines(from, to, cursorLines, docObj)) continue
+    decorations.push(hideMark.range(from, from + 3)) // <u>
+    decorations.push(hideMark.range(to - 4, to))     // </u>
+    decorations.push(underlineMark.range(from + 3, to - 4))
+  }
+
+  // Strikethrough: ~~...~~
+  const sRegex = /~~([^~]+?)~~/g
+  while ((m = sRegex.exec(doc)) !== null) {
+    const from = m.index
+    const to = from + m[0].length
+    if (isOnCursorLines(from, to, cursorLines, docObj)) continue
+    decorations.push(hideMark.range(from, from + 2))
+    decorations.push(hideMark.range(to - 2, to))
+    decorations.push(strikethroughMark.range(from + 2, to - 2))
+  }
+
+  // Alignment: {center}, {right}, {justify} after optional heading prefix
+  const alignRegex = /^(?:#{1,6}\s)?(\{(center|right|justify)\})/gm
+  while ((m = alignRegex.exec(doc)) !== null) {
+    const from = m.index + m[0].indexOf(m[1])
+    const to = from + m[1].length
+    const line = docObj.lineAt(from)
+    if (cursorLines.has(line.number)) continue
+    decorations.push(hideMark.range(from, to))
+    const alignDeco = m[2] === 'center' ? alignCenter : m[2] === 'right' ? alignRight : alignJustify
+    decorations.push(alignDeco.range(line.from))
+  }
+}
+
 function addLatexDecorations(doc: string, docObj: any, cursorLines: Set<number>, decorations: Range<Decoration>[]) {
   // Block math: $$...$$
   const blockRegex = /\$\$([^$]+?)\$\$/g
@@ -352,7 +394,8 @@ function buildDecorations(view: EditorView, padPath: string): DecorationSet {
     },
   })
 
-  // LaTeX (regex-based, since markdown parser doesn't know about $)
+  // Regex-based decorations (not handled by markdown parser)
+  addInlineDecorations(docText, view.state.doc, cursorLines, decorations)
   addLatexDecorations(docText, view.state.doc, cursorLines, decorations)
 
   // Filter out tree/latex decorations that overlap with \image ranges, then add image widgets
@@ -416,6 +459,11 @@ export const livePreviewTheme = EditorView.baseTheme({
   '.cm-live-h6': { fontSize: '0.9em', fontWeight: '600', lineHeight: '1.4' },
   '.cm-live-bold': { fontWeight: '700' },
   '.cm-live-italic': { fontStyle: 'italic' },
+  '.cm-live-underline': { textDecoration: 'underline' },
+  '.cm-live-strikethrough': { textDecoration: 'line-through' },
+  '.cm-live-align-center': { textAlign: 'center' },
+  '.cm-live-align-right': { textAlign: 'right' },
+  '.cm-live-align-justify': { textAlign: 'justify' },
   '.cm-live-code': {
     fontFamily: 'ui-monospace, Consolas, monospace',
     backgroundColor: 'rgba(120, 113, 108, 0.15)',
