@@ -26,18 +26,21 @@ public class PadResource {
     @Inject
     ImageStorageService storage;
 
+    @Inject
+    UploadLimitService uploadLimitService;
+
     @GET
     @Path("/{path}")
     public PadDto get(@PathParam("path") String path) {
         String normalized = path.toLowerCase();
         Pad pad = Pad.findByPath(normalized);
-        return new PadDto(normalized, pad != null ? pad.content : "");
+        return toPadDto(normalized, pad != null ? pad.content : "");
     }
 
     @PUT
     @Path("/{path}")
     @Transactional
-    public PadDto put(@PathParam("path") String path, PadDto dto) {
+    public PadDto put(@PathParam("path") String path, PadUpdateDto dto) {
         String normalized = path.toLowerCase();
         Pad pad = Pad.findByPath(normalized);
         if (pad == null) {
@@ -64,6 +67,20 @@ public class PadResource {
             }
         }
 
-        return new PadDto(normalized, pad.content);
+        return toPadDto(normalized, pad.content);
+    }
+
+    private PadDto toPadDto(String normalized, String content) {
+        UploadLimitStatus limits = uploadLimitService.currentStatus(normalized);
+        return new PadDto(
+                normalized,
+                content,
+                limits.imageCount(),
+                limits.imageCountLimit(),
+                limits.totalImageBytes(),
+                limits.totalImageBytesLimit(),
+                limits.uploadBlocked(),
+                limits.uploadBlockReason()
+        );
     }
 }

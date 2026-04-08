@@ -22,6 +22,9 @@ public class ImageResource {
     @Inject
     ImageStorageService storage;
 
+    @Inject
+    UploadLimitService uploadLimitService;
+
     @POST
     @Path("/{padPath}/images")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -42,8 +45,14 @@ public class ImageResource {
             return Response.status(413).entity("File too large. Max 10MB.").build();
         }
 
-        String imageId = UUID.randomUUID().toString();
         String normalized = padPath.toLowerCase();
+        UploadLimitStatus limitStatus = uploadLimitService.evaluateBeforeUpload(normalized, fileSize);
+        if (limitStatus.uploadBlocked()) {
+            int statusCode = "Image limit reached for this pad".equals(limitStatus.uploadBlockReason()) ? 429 : 413;
+            return Response.status(statusCode).entity(limitStatus.uploadBlockReason()).build();
+        }
+
+        String imageId = UUID.randomUUID().toString();
 
         storage.store(imageId, Files.newInputStream(file.filePath()));
 
@@ -52,8 +61,18 @@ public class ImageResource {
         record.padPath = normalized;
         record.contentType = contentType;
         record.filename = file.fileName();
+        record.fileSizeBytes = fileSize;
         record.persist();
 
-        return Response.status(201).entity(new ImageDto(imageId, "/api/images/" + imageId)).build();
+        UploadLimitStatus updated = uploadLimitService.currentStatus(normalized);
+
+        return Response.status(201).entity(new ImageDto(
+                imageId,
+                "/api/images/" + imageId,
+                updated.imageCount(),
+                updated.imageCountLimit(),
+                updated.totalImageBytes(),
+                updated.totalImageBytesLimit()
+        )).build();
     }
 }

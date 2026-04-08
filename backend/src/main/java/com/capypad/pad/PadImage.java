@@ -22,6 +22,9 @@ public class PadImage extends PanacheEntity {
     @Column(nullable = false)
     public String filename;
 
+    @Column(name = "file_size_bytes")
+    public Long fileSizeBytes;
+
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 
@@ -40,5 +43,17 @@ public class PadImage extends PanacheEntity {
 
     public static long deleteByPadPath(String padPath) {
         return delete("padPath", padPath);
+    }
+
+    public static long countByPadPath(String padPath) {
+        return count("padPath", padPath);
+    }
+
+    public static long totalSizeByPadPath(String padPath) {
+        Long result = getEntityManager()
+                .createQuery("select coalesce(sum(pi.fileSizeBytes), 0) from PadImage pi where pi.padPath = :padPath", Long.class)
+                .setParameter("padPath", padPath)
+                .getSingleResult();
+        return result == null ? 0L : result;
     }
 }
