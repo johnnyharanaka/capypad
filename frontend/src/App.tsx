@@ -87,9 +87,12 @@ function CopyUrlButton() {
 }
 
 function renderImages(text: string): string {
-  return text.replace(/\\image\[([^\]]+)\]/g, (_, id) =>
-    `<img src="${window.location.origin}/api/images/${id}" alt="image" style="max-width:100%;border-radius:6px">`
-  )
+  return text.replace(/\\image\[([^\]|]+)(?:\|(\d+))?\]/g, (_, id, width) => {
+    const style = width
+      ? `width:${width}px;max-width:100%;border-radius:6px`
+      : `max-width:100%;border-radius:6px`
+    return `<img src="${window.location.origin}/api/images/${id}" alt="image" style="${style}">`
+  })
 }
 
 function renderAlignment(html: string): string {

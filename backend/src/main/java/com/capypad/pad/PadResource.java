@@ -50,7 +50,11 @@ public class PadResource {
         // Clean up orphaned images
         Set<String> referenced = new HashSet<>();
         Matcher m = IMAGE_REF.matcher(pad.content);
-        while (m.find()) referenced.add(m.group(1));
+        while (m.find()) {
+            String ref = m.group(1);
+            int pipe = ref.indexOf('|');
+            referenced.add(pipe >= 0 ? ref.substring(0, pipe) : ref);
+        }
 
         List<PadImage> allImages = PadImage.findByPadPath(normalized);
         for (PadImage img : allImages) {

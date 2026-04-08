@@ -27,7 +27,26 @@ const italicMark = Decoration.mark({ class: 'cm-live-italic' })
 const underlineMark = Decoration.mark({ class: 'cm-live-underline' })
 const strikethroughMark = Decoration.mark({ class: 'cm-live-strikethrough' })
 const codeMark = Decoration.mark({ class: 'cm-live-code' })
-const linkMark = Decoration.mark({ class: 'cm-live-link' })
+
+class LinkWidget extends WidgetType {
+  text: string
+  url: string
+  constructor(text: string, url: string) { super(); this.text = text; this.url = url }
+  eq(other: LinkWidget) { return this.text === other.text && this.url === other.url }
+  toDOM() {
+    const a = document.createElement('a')
+    a.className = 'cm-live-link'
+    a.textContent = this.text
+    a.href = this.url
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.addEventListener('click', (e) => {
+      e.preventDefault()
+      window.open(a.href, '_blank', 'noopener,noreferrer')
+    })
+    return a
+  }
+}
 const quoteLine = Decoration.line({ class: 'cm-live-blockquote' })
 const alignCenter = Decoration.line({ class: 'cm-live-align-center' })
 const alignRight = Decoration.line({ class: 'cm-live-align-right' })
@@ -79,14 +98,16 @@ class KatexBlockWidget extends WidgetType {
 
 class ImageWidget extends WidgetType {
   imageId: string | null
+  width: number | null
   view: EditorView
   from: number
   to: number
   padPath: string
 
-  constructor(imageId: string | null, view: EditorView, from: number, to: number, padPath: string) {
+  constructor(imageId: string | null, width: number | null, view: EditorView, from: number, to: number, padPath: string) {
     super()
     this.imageId = imageId
+    this.width = width
     this.view = view
     this.from = from
     this.to = to
@@ -94,7 +115,7 @@ class ImageWidget extends WidgetType {
   }
 
   eq(other: ImageWidget) {
-    return this.imageId === other.imageId && this.from === other.from && this.to === other.to
+    return this.imageId === other.imageId && this.width === other.width && this.from === other.from && this.to === other.to
   }
 
   toDOM() {
@@ -138,15 +159,21 @@ class ImageWidget extends WidgetType {
     } else {
       const container = document.createElement('span')
       container.className = 'cm-live-image-container'
+      if (this.width) container.style.width = `${this.width}px`
       const img = document.createElement('img')
       img.src = `/api/images/${this.imageId}`
       img.className = 'cm-live-image'
       img.alt = 'Uploaded image'
+      if (this.width) {
+        img.style.width = '100%'
+        img.style.maxHeight = 'none'
+      }
+
       const deleteBtn = document.createElement('button')
       deleteBtn.className = 'cm-live-image-delete'
       deleteBtn.textContent = '\u00d7'
       deleteBtn.title = 'Delete image'
-      const { view, from, to, imageId } = this
+      const { view, from, to, imageId, width } = this
       deleteBtn.addEventListener('click', (e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -154,8 +181,42 @@ class ImageWidget extends WidgetType {
           view.dispatch({ changes: { from, to, insert: '' } })
         })
       })
+
+      // Resize handle
+      const handle = document.createElement('span')
+      handle.className = 'cm-live-image-resize'
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const startX = e.clientX
+        const startY = e.clientY
+        const startW = container.offsetWidth
+        img.style.maxHeight = 'none'
+        const onMove = (ev: MouseEvent) => {
+          const dx = ev.clientX - startX
+          const dy = ev.clientY - startY
+          const dist = Math.sqrt(dx * dx + dy * dy) * (dx + dy >= 0 ? 1 : -1)
+          const newW = Math.max(50, startW + dist)
+          container.style.width = `${newW}px`
+          img.style.width = '100%'
+        }
+        const onUp = (ev: MouseEvent) => {
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
+          const dx = ev.clientX - startX
+          const dy = ev.clientY - startY
+          const dist = Math.sqrt(dx * dx + dy * dy) * (dx + dy >= 0 ? 1 : -1)
+          const finalW = Math.max(50, startW + dist)
+          const newText = `\\image[${imageId}|${Math.round(finalW)}]`
+          view.dispatch({ changes: { from, to, insert: newText } })
+        }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+      })
+
       container.appendChild(img)
       container.appendChild(deleteBtn)
+      container.appendChild(handle)
       wrapper.appendChild(container)
     }
     return wrapper
@@ -193,10 +254,16 @@ function addImageDecorations(
     const from = match.index
     const to = from + match[0].length
     if (isOnCursorLines(from, to, cursorLines, docObj)) continue
-    const imageId = match[1] || null
+    let imageId: string | null = null
+    let width: number | null = null
+    if (match[1]) {
+      const parts = match[1].split('|')
+      imageId = parts[0]
+      if (parts[1]) width = parseInt(parts[1], 10) || null
+    }
     decorations.push(
       Decoration.replace({
-        widget: new ImageWidget(imageId, view, from, to, padPath),
+        widget: new ImageWidget(imageId, width, view, from, to, padPath),
       }).range(from, to)
     )
   }
@@ -354,13 +421,16 @@ function buildDecorations(view: EditorView, padPath: string): DecorationSet {
 
       // Links [text](url)
       if (node.name === 'Link') {
-        decorations.push(hideMark.range(node.from, node.from + 1))
-        const urlPart = view.state.doc.sliceString(node.from, node.to)
-        const closeBracket = urlPart.indexOf('](')
+        const fullText = view.state.doc.sliceString(node.from, node.to)
+        const closeBracket = fullText.indexOf('](')
         if (closeBracket !== -1) {
-          const absPos = node.from + closeBracket
-          decorations.push(hideMark.range(absPos, node.to))
-          decorations.push(linkMark.range(node.from + 1, absPos))
+          const linkText = fullText.slice(1, closeBracket)
+          const url = fullText.slice(closeBracket + 2, -1)
+          decorations.push(
+            Decoration.replace({
+              widget: new LinkWidget(linkText, url),
+            }).range(node.from, node.to)
+          )
         }
         return false
       }
@@ -552,6 +622,24 @@ export const livePreviewTheme = EditorView.baseTheme({
     transition: 'opacity 0.2s',
   },
   '.cm-live-image-container:hover .cm-live-image-delete': {
+    opacity: '1',
+  },
+  '.cm-live-image-resize': {
+    position: 'absolute',
+    bottom: '4px',
+    right: '4px',
+    width: '16px',
+    height: '16px',
+    cursor: 'nwse-resize',
+    opacity: '0',
+    transition: 'opacity 0.2s',
+    background: 'rgba(0,0,0,0.55)',
+    borderRadius: '4px',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M9 1v8H1' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+  },
+  '.cm-live-image-container:hover .cm-live-image-resize': {
     opacity: '1',
   },
 })
