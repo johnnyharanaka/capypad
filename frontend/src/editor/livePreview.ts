@@ -778,6 +778,7 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-line:has(.cm-live-image-upload)": {
     lineHeight: "0",
+    fontSize: "0",
     padding: "0",
   },
   ".cm-live-image-upload": {
@@ -809,7 +810,7 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-image-container": {
     position: "relative",
-    display: "inline-block",
+    display: "block",
     maxWidth: "100%",
   },
   ".cm-live-image": {
