@@ -96,7 +96,84 @@ export default function PadCodeEditor({
   onEditorReady,
 }: Props) {
   const extensions = useMemo(
-    () => [
+    () => {
+      const handleImageFile = (file: File, view: EditorView) => {
+        if (file.size > 10 * 1024 * 1024) {
+          onUploadError("File too large. Max 10MB.");
+          return;
+        }
+        // Insert placeholder \image at cursor
+        const pos = view.state.selection.main.head;
+        view.dispatch({
+          changes: { from: pos, insert: "\n\\image\n" },
+        });
+        // Upload and replace with \image[id]
+        const formData = new FormData();
+        formData.append("file", file);
+        fetch(`/api/pad/${padPath}/images`, {
+          method: "POST",
+          body: formData,
+        })
+          .then(async (r) => {
+            if (!r.ok) {
+              const message = await r
+                .text()
+                .catch(() => "Upload failed. Try again.");
+              throw new Error(message || "Upload failed. Try again.");
+            }
+            return r.json();
+          })
+          .then(
+            (data: {
+              imageId: string;
+              imageCount: number;
+              imageCountLimit: number;
+              totalImageBytes: number;
+              totalImageBytesLimit: number;
+            }) => {
+              onUploadLimitsUpdate({
+                imageCount: data.imageCount,
+                imageCountLimit: data.imageCountLimit,
+                totalImageBytes: data.totalImageBytes,
+                totalImageBytesLimit: data.totalImageBytesLimit,
+              });
+              // Find the bare \image we just inserted
+              const doc = view.state.doc.toString();
+              const idx = doc.indexOf("\\image", pos);
+              if (idx !== -1 && doc.slice(idx, idx + 7) !== "\\image[") {
+                view.dispatch({
+                  changes: {
+                    from: idx,
+                    to: idx + 6,
+                    insert: `\\image[${data.imageId}]`,
+                  },
+                });
+              }
+            },
+          )
+          .catch((err: unknown) => {
+            onUploadError(
+              err instanceof Error
+                ? err.message
+                : "Upload failed. Try again.",
+            );
+            // Remove placeholder on failure
+            const doc = view.state.doc.toString();
+            const idx = doc.indexOf("\\image", pos);
+            if (idx !== -1 && doc.slice(idx, idx + 7) !== "\\image[") {
+              const end = doc[idx + 6] === "\n" ? idx + 7 : idx + 6;
+              view.dispatch({
+                changes: {
+                  from: idx > 0 && doc[idx - 1] === "\n" ? idx - 1 : idx,
+                  to: end,
+                  insert: "",
+                },
+              });
+            }
+          });
+      };
+
+      return [
       cleanTheme,
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(markdownHighlight),
@@ -180,86 +257,68 @@ export default function PadCodeEditor({
               }
               const file = item.getAsFile();
               if (!file) return true;
-              if (file.size > 10 * 1024 * 1024) {
-                onUploadError("File too large. Max 10MB.");
-                return true;
-              }
-              // Insert placeholder \image at cursor
-              const pos = view.state.selection.main.head;
-              view.dispatch({
-                changes: { from: pos, insert: "\n\\image\n" },
-              });
-              // Upload and replace with \image[id]
-              const formData = new FormData();
-              formData.append("file", file);
-              fetch(`/api/pad/${padPath}/images`, {
-                method: "POST",
-                body: formData,
-              })
-                .then(async (r) => {
-                  if (!r.ok) {
-                    const message = await r
-                      .text()
-                      .catch(() => "Upload failed. Try again.");
-                    throw new Error(message || "Upload failed. Try again.");
-                  }
-                  return r.json();
-                })
-                .then(
-                  (data: {
-                    imageId: string;
-                    imageCount: number;
-                    imageCountLimit: number;
-                    totalImageBytes: number;
-                    totalImageBytesLimit: number;
-                  }) => {
-                    onUploadLimitsUpdate({
-                      imageCount: data.imageCount,
-                      imageCountLimit: data.imageCountLimit,
-                      totalImageBytes: data.totalImageBytes,
-                      totalImageBytesLimit: data.totalImageBytesLimit,
-                    });
-                    // Find the bare \image we just inserted
-                    const doc = view.state.doc.toString();
-                    const idx = doc.indexOf("\\image", pos);
-                    if (idx !== -1 && doc.slice(idx, idx + 7) !== "\\image[") {
-                      view.dispatch({
-                        changes: {
-                          from: idx,
-                          to: idx + 6,
-                          insert: `\\image[${data.imageId}]`,
-                        },
-                      });
-                    }
-                  },
-                )
-                .catch((err: unknown) => {
-                  onUploadError(
-                    err instanceof Error
-                      ? err.message
-                      : "Upload failed. Try again.",
-                  );
-                  // Remove placeholder on failure
-                  const doc = view.state.doc.toString();
-                  const idx = doc.indexOf("\\image", pos);
-                  if (idx !== -1 && doc.slice(idx, idx + 7) !== "\\image[") {
-                    const end = doc[idx + 6] === "\n" ? idx + 7 : idx + 6;
-                    view.dispatch({
-                      changes: {
-                        from: idx > 0 && doc[idx - 1] === "\n" ? idx - 1 : idx,
-                        to: end,
-                        insert: "",
-                      },
-                    });
-                  }
-                });
+              handleImageFile(file, view);
               return true;
             }
           }
           return false;
         },
       }),
-    ],
+      // Drag-and-drop: attach on view.dom with capture to intercept before browser navigates
+      ViewPlugin.fromClass(
+        class {
+          onDragOver: (e: DragEvent) => void;
+          onDrop: (e: DragEvent) => void;
+          dom: HTMLElement;
+
+          constructor(view: EditorView) {
+            this.dom = view.dom;
+
+            this.onDragOver = (e: DragEvent) => {
+              if (e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files")) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }
+            };
+
+            this.onDrop = (e: DragEvent) => {
+              const files = e.dataTransfer?.files;
+              if (!files || files.length === 0) return;
+              const imageFiles = Array.from(files).filter((f) =>
+                f.type.startsWith("image/"),
+              );
+              if (imageFiles.length === 0) return;
+              e.preventDefault();
+              e.stopPropagation();
+              if (uploadBlocked) {
+                onUploadError(
+                  uploadBlockReason ?? "Image upload blocked for this pad",
+                );
+                return;
+              }
+              const dropPos = view.posAtCoords({
+                x: e.clientX,
+                y: e.clientY,
+              });
+              if (dropPos != null) {
+                view.dispatch({ selection: { anchor: dropPos } });
+              }
+              for (const file of imageFiles) {
+                handleImageFile(file, view);
+              }
+            };
+
+            this.dom.addEventListener("dragover", this.onDragOver, true);
+            this.dom.addEventListener("drop", this.onDrop, true);
+          }
+
+          destroy() {
+            this.dom.removeEventListener("dragover", this.onDragOver, true);
+            this.dom.removeEventListener("drop", this.onDrop, true);
+          }
+        },
+      ),
+    ];},
     [
       padPath,
       uploadBlocked,
