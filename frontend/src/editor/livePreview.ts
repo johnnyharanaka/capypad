@@ -131,6 +131,7 @@ class ImageWidget extends WidgetType {
     totalImageBytesLimit: number;
   }) => void;
   onUploadError: (message: string) => void;
+  cleanup: (() => void) | null = null;
 
   constructor(
     imageId: string | null,
@@ -261,21 +262,82 @@ class ImageWidget extends WidgetType {
     } else {
       const container = document.createElement("span");
       container.className = "cm-live-image-container";
-      if (this.width) container.style.width = `${this.width}px`;
+      container.style.setProperty("display", "inline-block", "important");
+      container.style.setProperty("max-width", "100%", "important");
+
+      const frame = document.createElement("span");
+      frame.className = "cm-live-image-frame";
+      frame.style.setProperty("position", "relative", "important");
+      frame.style.setProperty("display", "inline-block", "important");
+      frame.style.setProperty("max-width", "100%", "important");
+      if (this.width) frame.style.width = `${this.width}px`;
+
       const img = document.createElement("img");
       img.src = `/api/images/${this.imageId}`;
       img.className = "cm-live-image";
       img.alt = "Uploaded image";
+      img.style.display = "block";
       if (this.width) {
         img.style.width = "100%";
         img.style.maxHeight = "none";
+      }
+
+      let scheduleInitialSync = null as (() => void) | null;
+
+      if (!this.width) {
+        const syncFrameWidth = (attempts = 12) => {
+          const renderedW = img.getBoundingClientRect().width;
+          if (renderedW > 0) {
+            frame.style.width = `${Math.round(renderedW)}px`;
+            img.style.width = "100%";
+            img.style.maxHeight = "none";
+            return;
+          }
+          if (attempts > 0) {
+            requestAnimationFrame(() => syncFrameWidth(attempts - 1));
+          }
+        };
+
+        const scheduleSync = () => {
+          requestAnimationFrame(() => syncFrameWidth());
+        };
+        scheduleInitialSync = scheduleSync;
+
+        const onLoad = () => scheduleSync();
+        img.addEventListener("load", onLoad);
+        if (img.complete) scheduleSync();
+        if (typeof img.decode === "function") {
+          img.decode().then(scheduleSync).catch(() => {
+            // Ignore decode failures and keep fallback listeners.
+          });
+        }
+
+        let resizeObserver: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(() => scheduleSync());
+          resizeObserver.observe(img);
+          resizeObserver.observe(this.view.contentDOM);
+        } else {
+          window.addEventListener("resize", scheduleSync);
+        }
+
+        this.cleanup = () => {
+          img.removeEventListener("load", onLoad);
+          if (resizeObserver) {
+            resizeObserver.disconnect();
+          } else {
+            window.removeEventListener("resize", scheduleSync);
+          }
+        };
+      } else {
+        this.cleanup = null;
       }
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "cm-live-image-delete";
       deleteBtn.textContent = "\u00d7";
       deleteBtn.title = "Delete image";
-      const { view, from, to, imageId, width } = this;
+      const { view, from, to, imageId } = this;
       deleteBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -292,14 +354,14 @@ class ImageWidget extends WidgetType {
         e.stopPropagation();
         const startX = e.clientX;
         const startY = e.clientY;
-        const startW = container.offsetWidth;
+        const startW = frame.offsetWidth;
         img.style.maxHeight = "none";
         const onMove = (ev: MouseEvent) => {
           const dx = ev.clientX - startX;
           const dy = ev.clientY - startY;
           const dist = Math.sqrt(dx * dx + dy * dy) * (dx + dy >= 0 ? 1 : -1);
           const newW = Math.max(50, startW + dist);
-          container.style.width = `${newW}px`;
+          frame.style.width = `${newW}px`;
           img.style.width = "100%";
         };
         const onUp = (ev: MouseEvent) => {
@@ -316,10 +378,15 @@ class ImageWidget extends WidgetType {
         document.addEventListener("mouseup", onUp);
       });
 
-      container.appendChild(img);
-      container.appendChild(deleteBtn);
-      container.appendChild(handle);
+      frame.appendChild(img);
+      frame.appendChild(deleteBtn);
+      frame.appendChild(handle);
+      container.appendChild(frame);
       wrapper.appendChild(container);
+
+      if (scheduleInitialSync) {
+        scheduleInitialSync();
+      }
     }
     return wrapper;
   }
@@ -809,8 +876,12 @@ export const livePreviewTheme = EditorView.baseTheme({
     animation: "spin 1s linear infinite",
   },
   ".cm-live-image-container": {
+    display: "inline-block",
+    maxWidth: "100%",
+  },
+  ".cm-live-image-frame": {
     position: "relative",
-    display: "block",
+    display: "inline-block",
     maxWidth: "100%",
   },
   ".cm-live-image": {
@@ -837,7 +908,7 @@ export const livePreviewTheme = EditorView.baseTheme({
     opacity: "0",
     transition: "opacity 0.2s",
   },
-  ".cm-live-image-container:hover .cm-live-image-delete": {
+  ".cm-live-image-frame:hover .cm-live-image-delete": {
     opacity: "1",
   },
   ".cm-live-image-resize": {
@@ -855,7 +926,7 @@ export const livePreviewTheme = EditorView.baseTheme({
     backgroundRepeat: "no-repeat",
     backgroundPosition: "center",
   },
-  ".cm-live-image-container:hover .cm-live-image-resize": {
+  ".cm-live-image-frame:hover .cm-live-image-resize": {
     opacity: "1",
   },
 });
