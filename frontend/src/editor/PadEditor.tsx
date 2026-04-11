@@ -6,6 +6,7 @@ import { EditorView, ViewPlugin } from "@codemirror/view";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { createLivePreview, livePreviewTheme } from "./livePreview";
+import { compressImageForUpload } from "./imageUpload";
 
 // Override default markdown syntax highlighting to remove underlines etc.
 const markdownHighlight = HighlightStyle.define([
@@ -22,6 +23,16 @@ const markdownHighlight = HighlightStyle.define([
   { tag: tags.processingInstruction, textDecoration: "none" },
   { tag: tags.contentSeparator, textDecoration: "none" },
 ]);
+
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+
+const UNSUPPORTED_IMAGE_MESSAGE =
+  "Only JPEG, PNG, GIF, or WebP images are allowed.";
 
 const blurOnMount = ViewPlugin.fromClass(
   class {
@@ -97,7 +108,7 @@ export default function PadCodeEditor({
 }: Props) {
   const extensions = useMemo(
     () => {
-      const handleImageFile = (file: File, view: EditorView) => {
+      const handleImageFile = async (file: File, view: EditorView) => {
         if (file.size > 10 * 1024 * 1024) {
           onUploadError("File too large. Max 10MB.");
           return;
@@ -107,9 +118,16 @@ export default function PadCodeEditor({
         view.dispatch({
           changes: { from: pos, insert: "\n\\image\n" },
         });
+        // Compress before upload (falls back to original if compression fails)
+        let optimized = file;
+        try {
+          optimized = await compressImageForUpload(file);
+        } catch {
+          optimized = file;
+        }
         // Upload and replace with \image[id]
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", optimized);
         fetch(`/api/pad/${padPath}/images`, {
           method: "POST",
           body: formData,
@@ -249,6 +267,10 @@ export default function PadCodeEditor({
           for (const item of items) {
             if (item.type.startsWith("image/")) {
               event.preventDefault();
+              if (!ALLOWED_IMAGE_TYPES.has(item.type)) {
+                onUploadError(UNSUPPORTED_IMAGE_MESSAGE);
+                return true;
+              }
               if (uploadBlocked) {
                 onUploadError(
                   uploadBlockReason ?? "Image upload blocked for this pad",
@@ -284,12 +306,19 @@ export default function PadCodeEditor({
             this.onDrop = (e: DragEvent) => {
               const files = e.dataTransfer?.files;
               if (!files || files.length === 0) return;
-              const imageFiles = Array.from(files).filter((f) =>
+              const droppedImages = Array.from(files).filter((f) =>
                 f.type.startsWith("image/"),
               );
-              if (imageFiles.length === 0) return;
+              if (droppedImages.length === 0) return;
               e.preventDefault();
               e.stopPropagation();
+              const imageFiles = droppedImages.filter((f) =>
+                ALLOWED_IMAGE_TYPES.has(f.type),
+              );
+              if (imageFiles.length < droppedImages.length) {
+                onUploadError(UNSUPPORTED_IMAGE_MESSAGE);
+                if (imageFiles.length === 0) return;
+              }
               if (uploadBlocked) {
                 onUploadError(
                   uploadBlockReason ?? "Image upload blocked for this pad",

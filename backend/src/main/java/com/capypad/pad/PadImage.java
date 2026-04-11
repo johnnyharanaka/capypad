@@ -25,6 +25,9 @@ public class PadImage extends PanacheEntity {
     @Column(name = "file_size_bytes")
     public Long fileSizeBytes;
 
+    @Column(name = "content_hash", length = 64)
+    public String contentHash;
+
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 

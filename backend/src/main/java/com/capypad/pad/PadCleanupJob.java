@@ -31,7 +31,7 @@ public class PadCleanupJob {
         for (Pad pad : expired) {
             List<PadImage> images = PadImage.findByPadPath(pad.path);
             for (PadImage img : images) {
-                storage.delete(img.imageId);
+                storage.deleteForRecord(img);
                 img.delete();
             }
             pad.delete();

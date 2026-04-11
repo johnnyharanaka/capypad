@@ -10,6 +10,7 @@ import { type EditorState, type Range } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { compressImageForUpload } from "./imageUpload";
 
 const hideMark = Decoration.replace({});
 
@@ -186,7 +187,7 @@ class ImageWidget extends WidgetType {
         : "Upload image";
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = "image/*";
+      input.accept = "image/jpeg,image/png,image/gif,image/webp";
       input.style.display = "none";
       if (this.uploadBlocked) {
         label.classList.add("cm-live-image-uploading");
@@ -201,7 +202,7 @@ class ImageWidget extends WidgetType {
         onUploadLimitsUpdate,
         onUploadError,
       } = this;
-      input.addEventListener("change", () => {
+      input.addEventListener("change", async () => {
         if (uploadBlocked) {
           const message =
             uploadBlockReason ?? "Image upload blocked for this pad";
@@ -211,15 +212,33 @@ class ImageWidget extends WidgetType {
         }
         const file = input.files?.[0];
         if (!file) return;
+        const allowedTypes = new Set([
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+        ]);
+        if (!allowedTypes.has(file.type)) {
+          const message = "Only JPEG, PNG, GIF, or WebP images are allowed.";
+          label.textContent = message;
+          onUploadError(message);
+          return;
+        }
         if (file.size > 10 * 1024 * 1024) {
           label.textContent = "Max 10MB. Try another file.";
           onUploadError("File too large. Max 10MB.");
           return;
         }
-        const formData = new FormData();
-        formData.append("file", file);
         label.textContent = "Uploading...";
         label.classList.add("cm-live-image-uploading");
+        let optimized = file;
+        try {
+          optimized = await compressImageForUpload(file);
+        } catch {
+          optimized = file;
+        }
+        const formData = new FormData();
+        formData.append("file", optimized);
         fetch(`/api/pad/${padPath}/images`, { method: "POST", body: formData })
           .then(async (r) => {
             if (!r.ok) {
