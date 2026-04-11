@@ -27,7 +27,7 @@ public class MaintenanceFilter implements ContainerRequestFilter {
                 return;
             }
             
-            if (path != null && path.startsWith("/api/")) {
+            if (path != null && (path.startsWith("/api/") || path.startsWith("api/"))) {
                 requestContext.abortWith(Response.status(503)
                         .entity("{\"error\": \"System is currently under maintenance. Please try again later.\"}")
                         .header("Content-Type", "application/json")
