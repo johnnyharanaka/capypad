@@ -12,9 +12,22 @@ public class UploadLimitService {
     @ConfigProperty(name = "capypad.image.max-total-bytes-per-pad", defaultValue = "52428800")
     long maxTotalBytesPerPad;
 
+    @ConfigProperty(name = "block.image", defaultValue = "false")
+    boolean blockImage;
+
     public UploadLimitStatus currentStatus(String normalizedPadPath) {
         long imageCount = PadImage.countByPadPath(normalizedPadPath);
         long totalImageBytes = PadImage.totalSizeByPadPath(normalizedPadPath);
+
+        if (blockImage) {
+            return UploadLimitStatus.blocked(
+                    imageCount,
+                    0,
+                    totalImageBytes,
+                    0,
+                    "Image uploads are temporarily disabled"
+            );
+        }
 
         if (imageCount >= maxCountPerPad) {
             return UploadLimitStatus.blocked(
