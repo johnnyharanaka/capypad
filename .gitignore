@@ -29,3 +29,4 @@ data/
 .env
 .env.*
 !.env.example
+deploy.sh
