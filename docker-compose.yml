@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - capypad-data:/app/data
+    env_file:
+      - ./backend/.env.production
+    restart: unless-stopped
+
+volumes:
+  capypad-data:

@@ -7,6 +7,7 @@ import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { createLivePreview, livePreviewTheme } from "./livePreview";
 import { compressImageForUpload } from "./imageUpload";
+import { API } from "../api";
 
 // Override default markdown syntax highlighting to remove underlines etc.
 const markdownHighlight = HighlightStyle.define([
@@ -128,7 +129,7 @@ export default function PadCodeEditor({
         // Upload and replace with \image[id]
         const formData = new FormData();
         formData.append("file", optimized);
-        fetch(`/api/pad/${padPath}/images`, {
+        fetch(`${API}/api/pad/${padPath}/images`, {
           method: "POST",
           body: formData,
         })

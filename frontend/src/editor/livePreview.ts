@@ -11,6 +11,7 @@ import { syntaxTree } from "@codemirror/language";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { compressImageForUpload } from "./imageUpload";
+import { API } from "../api";
 
 const hideMark = Decoration.replace({});
 
@@ -239,7 +240,7 @@ class ImageWidget extends WidgetType {
         }
         const formData = new FormData();
         formData.append("file", optimized);
-        fetch(`/api/pad/${padPath}/images`, { method: "POST", body: formData })
+        fetch(`${API}/api/pad/${padPath}/images`, { method: "POST", body: formData })
           .then(async (r) => {
             if (!r.ok) {
               const message = await r
@@ -292,7 +293,7 @@ class ImageWidget extends WidgetType {
       if (this.width) frame.style.width = `${this.width}px`;
 
       const img = document.createElement("img");
-      img.src = `/api/images/${this.imageId}`;
+      img.src = `${API}/api/images/${this.imageId}`;
       img.className = "cm-live-image";
       img.alt = "Uploaded image";
       img.style.display = "block";
@@ -360,7 +361,7 @@ class ImageWidget extends WidgetType {
       deleteBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        fetch(`/api/images/${imageId}`, { method: "DELETE" }).then(() => {
+        fetch(`${API}/api/images/${imageId}`, { method: "DELETE" }).then(() => {
           view.dispatch({ changes: { from, to, insert: "" } });
         });
       });

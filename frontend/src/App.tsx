@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { API } from "./api";
 import { jsPDF } from "jspdf";
 import { marked } from "marked";
 import katex from "katex";
@@ -136,7 +137,7 @@ function renderImages(text: string): string {
     const style = width
       ? `width:${width}px;max-width:100%;border-radius:6px`
       : `max-width:100%;border-radius:6px`;
-    return `<img src="${window.location.origin}/api/images/${id}" alt="image" style="${style}">`;
+    return `<img src="${API}/api/images/${id}" alt="image" style="${style}">`;
   });
 }
 
@@ -615,7 +616,7 @@ function Home() {
   const go = () => {
     const trimmed = name.trim().toLowerCase();
     if (trimmed) {
-      window.location.href = `/${trimmed}`;
+      window.location.href = `${import.meta.env.BASE_URL}${trimmed}`;
     }
   };
 
@@ -713,7 +714,7 @@ function PadEditorPage({ padPath }: { padPath: string }) {
   }, []);
 
   useEffect(() => {
-    fetch(`/api/pad/${padPath}`)
+    fetch(`${API}/api/pad/${padPath}`)
       .then((res) => res.json())
       .then((data) => {
         setContent(data.content);
@@ -733,7 +734,7 @@ function PadEditorPage({ padPath }: { padPath: string }) {
     if (content === null) return;
     const timeout = setTimeout(() => {
       setSaving(true);
-      fetch(`/api/pad/${padPath}`, {
+      fetch(`${API}/api/pad/${padPath}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
@@ -746,7 +747,7 @@ function PadEditorPage({ padPath }: { padPath: string }) {
     <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
       <header className="sticky top-0 z-10 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md px-12 py-4 flex items-center shrink-0">
         <a
-          href="/"
+          href={import.meta.env.BASE_URL}
           className="no-underline hover:opacity-70 transition-opacity text-sm shrink-0"
         >
           <Logo className="text-sm" />
@@ -805,7 +806,10 @@ function PadEditorPage({ padPath }: { padPath: string }) {
 }
 
 function App() {
-  const padPath = window.location.pathname.replace(/^\/+/, "").toLowerCase();
+  const base = import.meta.env.BASE_URL.replace(/\/+$/, "");
+  const raw = window.location.pathname;
+  const stripped = base && raw.startsWith(base) ? raw.slice(base.length) : raw;
+  const padPath = stripped.replace(/^\/+/, "").toLowerCase();
 
   if (!padPath) return <Home />;
   return <PadEditorPage padPath={padPath} />;

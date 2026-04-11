@@ -27,4 +27,5 @@ data/
 
 # Env
 .env
-.env.local
+.env.*
+!.env.example
