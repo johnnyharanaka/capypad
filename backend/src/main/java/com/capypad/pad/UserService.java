@@ -6,6 +6,7 @@ import com.capypad.pad.dto.CreateUserRequest;
 import com.capypad.pad.dto.UserSummary;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.arc.ActivateRequestContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -221,6 +222,7 @@ public class UserService {
         return toSummary(user);
     }
 
+    @ActivateRequestContext
     @Transactional
     public UserSummary createAdmin(String username, String password) {
         return createUser(new CreateUserRequest(username, password, Role.ADMIN.name()));

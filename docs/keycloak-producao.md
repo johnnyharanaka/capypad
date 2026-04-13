@@ -13,7 +13,7 @@ keycloak:
   image: quay.io/keycloak/keycloak:latest
   container_name: capypad-keycloak
   restart: unless-stopped
-  command: start          # "start" em prd (nao "start-dev")
+  command: start # "start" em prd (nao "start-dev")
   env_file:
     - ./backend/.env
   environment:
@@ -22,14 +22,14 @@ keycloak:
     KC_HTTP_ENABLED: "true"
     KC_HTTP_RELATIVE_PATH: /auth
     KC_PROXY_HEADERS: "xforwarded"
-    KC_HOSTNAME: "seudominio.com"               # dominio publico
+    KC_HOSTNAME: "seudominio.com" # dominio publico
     KC_HOSTNAME_PATH: /auth
     KC_HOSTNAME_STRICT: "false"
-    KC_HOSTNAME_STRICT_HTTPS: "false"            # true se tiver HTTPS direto no KC
+    KC_HOSTNAME_STRICT_HTTPS: "false" # true se tiver HTTPS direto no KC
   volumes:
     - ./keycloak/themes/capypad:/opt/keycloak/themes/capypad
   ports:
-    - "127.0.0.1:8180:8080"    # expor apenas em localhost (nginx faz o proxy)
+    - "127.0.0.1:8180:8080" # expor apenas em localhost (nginx faz o proxy)
   networks:
     - capypad-net
   depends_on:
@@ -182,23 +182,15 @@ Para reset de senha funcionar:
 Com o Keycloak e Postgres rodando, execute o backend com setup mode:
 
 ```bash
-docker compose exec backend java \
-  -DADMIN_SETUP=true \
-  -DADMIN_USERNAME=seunome \
-  -DADMIN_PASSWORD=suasenha \
-  -jar /app/quarkus-app/quarkus-run.jar
+docker compose run --rm \
+  -e ADMIN_SETUP=true \
+  -e ADMIN_USERNAME=seunome \
+  -e ADMIN_PASSWORD='suasenha-forte' \
+  -e QUARKUS_HTTP_PORT=8180 \
+  backend
 ```
 
-Ou via env vars no docker-compose (temporariamente):
-
-```yaml
-environment:
-  ADMIN_SETUP: "true"
-  ADMIN_USERNAME: "seunome"
-  ADMIN_PASSWORD: "suasenha"
-```
-
-Depois de criar, **remova essas variaveis** e reinicie o container.
+Esse comando cria o admin em um container temporario e encerra em seguida.
 
 ---
 

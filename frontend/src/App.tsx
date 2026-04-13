@@ -1,5 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { API, getStoredUser, storeUser, clearStoredUser, type UserInfo } from "./api";
+import {
+  API,
+  getStoredUser,
+  storeUser,
+  clearStoredUser,
+  type UserInfo,
+} from "./api";
 import DOMPurify from "dompurify";
 import { jsPDF } from "jspdf";
 import { marked } from "marked";
@@ -71,10 +77,16 @@ function useAuth() {
 
   const login = useCallback(() => {
     const redirect = encodeURIComponent(window.location.href);
-    fetch(`${API}/api/auth/login?redirect=${redirect}`, { credentials: "include" })
-      .then(res => res.json())
-      .then(data => { window.location.href = data.url; })
-      .catch(() => { window.location.href = `${API}/api/auth/login?redirect=${redirect}`; });
+    fetch(`${API}/api/auth/login?redirect=${redirect}`, {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        window.location.href = data.url;
+      })
+      .catch(() => {
+        window.location.href = `${API}/api/auth/login?redirect=${redirect}`;
+      });
   }, []);
 
   const logout = useCallback(() => {
@@ -97,7 +109,6 @@ function useAuth() {
 }
 
 // LoginModal is removed as we now use Keycloak's login page
-
 
 function ThemeToggle({ dark, toggle }: { dark: boolean; toggle: () => void }) {
   return (
@@ -199,13 +210,16 @@ const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 function renderImages(text: string): string {
-  return text.replace(/\\image\[([^\]|]+)(?:\|(\d+))?\]/g, (match, id, width) => {
-    if (!UUID_RE.test(id)) return match;
-    const style = width
-      ? `width:${width}px;max-width:100%;border-radius:6px`
-      : `max-width:100%;border-radius:6px`;
-    return `<img src="${API}/api/images/${id}" alt="image" style="${style}">`;
-  });
+  return text.replace(
+    /\\image\[([^\]|]+)(?:\|(\d+))?\]/g,
+    (match, id, width) => {
+      if (!UUID_RE.test(id)) return match;
+      const style = width
+        ? `width:${width}px;max-width:100%;border-radius:6px`
+        : `max-width:100%;border-radius:6px`;
+      return `<img src="${API}/api/images/${id}" alt="image" style="${style}">`;
+    },
+  );
 }
 
 function renderAlignment(html: string): string {
@@ -742,12 +756,14 @@ function PadEditorPage({ padPath }: { padPath: string }) {
     50 * 1024 * 1024,
   );
   const [uploadBlocked, setUploadBlocked] = useState(false);
-  const [uploadBlockReason, setUploadBlockReason] = useState<string | null>(null);
+  const [uploadBlockReason, setUploadBlockReason] = useState<string | null>(
+    null,
+  );
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
   const editorViewRef = useRef<EditorView | null>(null);
-  const { isAuthenticated, isAdmin, username, login, logout, loading: authLoading } = useAuth();
+  const { isAuthenticated, isAdmin, username, login, logout } = useAuth();
   const [authMsg, setAuthMsg] = useState<string | null>(null);
 
   // Handle URL params like ?auth=pending
@@ -846,117 +862,149 @@ function PadEditorPage({ padPath }: { padPath: string }) {
 
   return (
     <>
-    <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
-
-      <header className="sticky top-0 z-10 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md px-12 py-4 flex items-center shrink-0">
-        <a
-          href={import.meta.env.BASE_URL}
-          className="no-underline hover:opacity-70 transition-opacity text-sm shrink-0"
-        >
-          <Logo className="text-sm" />
-          <span className="text-stone-400 dark:text-stone-500 font-normal text-sm ml-0.5">
-            /{padPath}
-          </span>
-        </a>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[11px] text-stone-400 dark:text-stone-500 tabular-nums mr-1">
-            <span className="hidden sm:inline">
-              {words} words · {chars} chars
+      <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
+        <header className="sticky top-0 z-10 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md px-12 py-4 flex items-center shrink-0">
+          <a
+            href={import.meta.env.BASE_URL}
+            className="no-underline hover:opacity-70 transition-opacity text-sm shrink-0"
+          >
+            <Logo className="text-sm" />
+            <span className="text-stone-400 dark:text-stone-500 font-normal text-sm ml-0.5">
+              /{padPath}
             </span>
-            <span className="sm:hidden">
-              {words}w · {chars}c
-            </span>
-          </span>
-          {isAuthenticated ? (
-            <div className="flex items-center gap-1.5">
-              {isAdmin && (
-                <a
-                  href={`${import.meta.env.BASE_URL}admin`}
-                  className="text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
-                >
-                  admin
-                </a>
-              )}
-              <span className="text-[11px] text-stone-400 dark:text-stone-500 max-w-[80px] truncate hidden sm:inline">
-                {username}
+          </a>
+          <div className="flex-1" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[11px] text-stone-400 dark:text-stone-500 tabular-nums mr-1">
+              <span className="hidden sm:inline">
+                {words} words · {chars} chars
               </span>
-              <button
-                onClick={logout}
-                className="p-1.5 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-                aria-label="Logout"
-                title="Logout"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                  <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clipRule="evenodd" />
-                  <path fillRule="evenodd" d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={login}
-              className="flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors px-1.5 py-1 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700"
-              title="Login to edit"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                <path fillRule="evenodd" d="M8 1a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7ZM4.5 4.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0ZM2 13.5A3.5 3.5 0 0 1 5.5 10h5a3.5 3.5 0 0 1 3.5 3.5v.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-.5Z" clipRule="evenodd" />
-              </svg>
-              <span className="hidden sm:inline">Login to edit</span>
-            </button>
-          )}
-          <SaveIndicator saving={saving} />
-          <DownloadPdfButton content={content ?? ""} padPath={padPath} />
-          <CopyUrlButton />
-          <ThemeToggle dark={dark} toggle={toggle} />
-        </div>
-      </header>
-      {(uploadBlocked || uploadError || authMsg) && (
-        <div className="px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-amber-50/70 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">
-          {authMsg ?? uploadError ?? uploadBlockReason}
-          {uploadBlocked && !authMsg && !uploadError && (
-            <span className="ml-2 opacity-80">
-              ({imageCount}/{imageCountLimit} images,{" "}
-              {Math.round(totalImageBytes / 1024 / 1024)}MB/
-              {Math.round(totalImageBytesLimit / 1024 / 1024)}MB)
+              <span className="sm:hidden">
+                {words}w · {chars}c
+              </span>
             </span>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-1.5">
+                {isAdmin && (
+                  <a
+                    href={`${import.meta.env.BASE_URL}admin`}
+                    className="text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+                  >
+                    admin
+                  </a>
+                )}
+                <span className="text-[11px] text-stone-400 dark:text-stone-500 max-w-[80px] truncate hidden sm:inline">
+                  {username}
+                </span>
+                <button
+                  onClick={logout}
+                  className="p-1.5 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                  aria-label="Logout"
+                  title="Logout"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="w-4 h-4"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z"
+                      clipRule="evenodd"
+                    />
+                    <path
+                      fillRule="evenodd"
+                      d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={login}
+                className="flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors px-1.5 py-1 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700"
+                title="Login to edit"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  className="w-3 h-3"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8 1a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7ZM4.5 4.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0ZM2 13.5A3.5 3.5 0 0 1 5.5 10h5a3.5 3.5 0 0 1 3.5 3.5v.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-.5Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Login to edit</span>
+              </button>
+            )}
+            <SaveIndicator saving={saving} />
+            <DownloadPdfButton content={content ?? ""} padPath={padPath} />
+            <CopyUrlButton />
+            <ThemeToggle dark={dark} toggle={toggle} />
+          </div>
+        </header>
+        {(uploadBlocked || uploadError || authMsg) && (
+          <div className="px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-amber-50/70 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">
+            {authMsg ?? uploadError ?? uploadBlockReason}
+            {uploadBlocked && !authMsg && !uploadError && (
+              <span className="ml-2 opacity-80">
+                ({imageCount}/{imageCountLimit} images,{" "}
+                {Math.round(totalImageBytes / 1024 / 1024)}MB/
+                {Math.round(totalImageBytesLimit / 1024 / 1024)}MB)
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex-1 overflow-auto pb-28">
+          {content !== null && (
+            <PadCodeEditor
+              value={content}
+              onChange={setContent}
+              dark={dark}
+              padPath={padPath}
+              readOnly={!isAuthenticated}
+              uploadBlocked={uploadBlocked}
+              uploadBlockReason={uploadBlockReason}
+              onUploadLimitsUpdate={applyUploadLimits}
+              onUploadError={onUploadError}
+              onEditorReady={(view) => {
+                editorViewRef.current = view;
+              }}
+            />
           )}
         </div>
-      )}
-      <div className="flex-1 overflow-auto pb-28">
-        {content !== null && (
-          <PadCodeEditor
-            value={content}
-            onChange={setContent}
-            dark={dark}
-            padPath={padPath}
-            readOnly={!isAuthenticated}
-            uploadBlocked={uploadBlocked}
-            uploadBlockReason={uploadBlockReason}
-            onUploadLimitsUpdate={applyUploadLimits}
-            onUploadError={onUploadError}
-            onEditorReady={(view) => {
-              editorViewRef.current = view;
-            }}
-          />
-        )}
+        <FloatingDock editorView={editorViewRef.current} />
       </div>
-      <FloatingDock editorView={editorViewRef.current} />
-    </div>
     </>
   );
 }
 
 function AdminPage() {
   const [dark, toggle] = useDarkMode();
-  const { isAuthenticated, isAdmin, username, login, logout, loading: authLoading } = useAuth();
+  const {
+    isAuthenticated,
+    isAdmin,
+    username,
+    login,
+    logout,
+    loading: authLoading,
+  } = useAuth();
 
-  const [users, setUsers] = useState<{ id: number; username: string; role: string; approved: boolean }[]>([]);
+  const [users, setUsers] = useState<
+    { id: number; username: string; role: string; approved: boolean }[]
+  >([]);
   const [showCreate, setShowCreate] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(
+    null,
+  );
   const [generatedUser, setGeneratedUser] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -972,8 +1020,12 @@ function AdminPage() {
   }, [isAuthenticated, isAdmin, fetchUsers]);
 
   const createUser = async () => {
-    if (!newUsername) { setError("Preencha o nome de usuário"); return; }
-    setLoading(true); setError(null);
+    if (!newUsername) {
+      setError("Preencha o nome de usuário");
+      return;
+    }
+    setLoading(true);
+    setError(null);
     const res = await fetch(`${API}/api/admin/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -990,7 +1042,8 @@ function AdminPage() {
     setGeneratedUser(data.username);
     setGeneratedPassword(data.generatedPassword);
     setCopied(false);
-    setNewUsername(""); setShowCreate(false);
+    setNewUsername("");
+    setShowCreate(false);
     fetchUsers();
   };
 
@@ -1025,19 +1078,23 @@ function AdminPage() {
     <>
       {/* LoginModal is removed */}
 
-
       {generatedPassword && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setGeneratedPassword(null)}
+          onClick={(e) =>
+            e.target === e.currentTarget && setGeneratedPassword(null)
+          }
         >
           <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
             <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
               Usuário criado
             </h2>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Envie a senha abaixo para <span className="font-medium text-stone-700 dark:text-stone-200">{generatedUser}</span>.
-              Ela não será exibida novamente.
+              Envie a senha abaixo para{" "}
+              <span className="font-medium text-stone-700 dark:text-stone-200">
+                {generatedUser}
+              </span>
+              . Ela não será exibida novamente.
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 bg-stone-100 dark:bg-stone-700 rounded-lg px-3 py-2 text-sm font-mono text-stone-800 dark:text-stone-100 select-all">
@@ -1062,18 +1119,33 @@ function AdminPage() {
 
       <div className="min-h-screen bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
         <header className="sticky top-0 z-10 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md px-8 py-4 flex items-center gap-4 border-b border-stone-200/60 dark:border-stone-700/60">
-          <a href={import.meta.env.BASE_URL} className="no-underline hover:opacity-70 transition-opacity">
+          <a
+            href={import.meta.env.BASE_URL}
+            className="no-underline hover:opacity-70 transition-opacity"
+          >
             <Logo className="text-sm" />
           </a>
-          <span className="text-stone-400 dark:text-stone-500 text-sm">/admin</span>
+          <span className="text-stone-400 dark:text-stone-500 text-sm">
+            /admin
+          </span>
           <div className="flex-1" />
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <span className="text-sm text-stone-500">{username}</span>
-              <button onClick={logout} className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors">Logout</button>
+              <button
+                onClick={logout}
+                className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+              >
+                Logout
+              </button>
             </div>
           ) : (
-            <button onClick={login} className="text-sm text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 transition-colors">Login</button>
+            <button
+              onClick={login}
+              className="text-sm text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 transition-colors"
+            >
+              Login
+            </button>
           )}
           <ThemeToggle dark={dark} toggle={toggle} />
         </header>
@@ -1082,7 +1154,12 @@ function AdminPage() {
           {!isAuthenticated ? (
             <div className="text-center text-stone-400 dark:text-stone-500 py-16">
               <p className="mb-4">Faça login para acessar o painel admin.</p>
-              <button onClick={login} className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-4 py-2 hover:opacity-80 transition-opacity">Login</button>
+              <button
+                onClick={login}
+                className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-4 py-2 hover:opacity-80 transition-opacity"
+              >
+                Login
+              </button>
             </div>
           ) : !isAdmin ? (
             <div className="text-center text-stone-400 dark:text-stone-500 py-16">
@@ -1092,9 +1169,25 @@ function AdminPage() {
             <>
               {authLoading ? (
                 <div className="flex justify-center py-16">
-                  <svg className="w-6 h-6 animate-spin text-stone-400" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3" />
-                    <path d="M14 8a6 6 0 00-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <svg
+                    className="w-6 h-6 animate-spin text-stone-400"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                  >
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="6"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      opacity="0.3"
+                    />
+                    <path
+                      d="M14 8a6 6 0 00-6-6"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
                   </svg>
                 </div>
               ) : (
@@ -1120,13 +1213,25 @@ function AdminPage() {
                         onKeyDown={(e) => e.key === "Enter" && createUser()}
                         className="border border-stone-200 dark:border-stone-600 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 placeholder:text-stone-400"
                       />
-                      <p className="text-xs text-stone-400">A senha será gerada automaticamente.</p>
+                      <p className="text-xs text-stone-400">
+                        A senha será gerada automaticamente.
+                      </p>
                       {error && <p className="text-xs text-red-500">{error}</p>}
                       <div className="flex gap-2">
-                        <button onClick={createUser} disabled={loading} className="flex-1 bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm hover:opacity-80 transition-opacity disabled:opacity-50">
+                        <button
+                          onClick={createUser}
+                          disabled={loading}
+                          className="flex-1 bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm hover:opacity-80 transition-opacity disabled:opacity-50"
+                        >
                           {loading ? "Criando..." : "Criar"}
                         </button>
-                        <button onClick={() => { setShowCreate(false); setError(null); }} className="flex-1 border border-stone-200 dark:border-stone-700 rounded-lg py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                        <button
+                          onClick={() => {
+                            setShowCreate(false);
+                            setError(null);
+                          }}
+                          className="flex-1 border border-stone-200 dark:border-stone-700 rounded-lg py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                        >
                           Cancelar
                         </button>
                       </div>
@@ -1135,12 +1240,21 @@ function AdminPage() {
 
                   {pendingUsers.length > 0 && (
                     <div className="mb-6">
-                      <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 mb-3">Pendentes</h2>
+                      <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 mb-3">
+                        Pendentes
+                      </h2>
                       <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-amber-200 dark:border-amber-700/50 rounded-xl overflow-hidden">
                         {pendingUsers.map((u) => (
-                          <div key={u.id} className="flex items-center px-4 py-3 bg-amber-50/50 dark:bg-amber-900/10">
-                            <span className="flex-1 text-sm font-medium">{u.username}</span>
-                            <span className="text-xs text-amber-600 dark:text-amber-400 mr-4">pendente</span>
+                          <div
+                            key={u.id}
+                            className="flex items-center px-4 py-3 bg-amber-50/50 dark:bg-amber-900/10"
+                          >
+                            <span className="flex-1 text-sm font-medium">
+                              {u.username}
+                            </span>
+                            <span className="text-xs text-amber-600 dark:text-amber-400 mr-4">
+                              pendente
+                            </span>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => approveUser(u.id)}
@@ -1162,12 +1276,20 @@ function AdminPage() {
                   )}
 
                   <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
-                    {approvedUsers.length === 0 && pendingUsers.length === 0 && (
-                      <p className="text-sm text-stone-400 text-center py-8">Nenhum usuário cadastrado.</p>
-                    )}
+                    {approvedUsers.length === 0 &&
+                      pendingUsers.length === 0 && (
+                        <p className="text-sm text-stone-400 text-center py-8">
+                          Nenhum usuário cadastrado.
+                        </p>
+                      )}
                     {approvedUsers.map((u) => (
-                      <div key={u.id} className="flex items-center px-4 py-3 bg-white dark:bg-stone-800/50">
-                        <span className="flex-1 text-sm font-medium">{u.username}</span>
+                      <div
+                        key={u.id}
+                        className="flex items-center px-4 py-3 bg-white dark:bg-stone-800/50"
+                      >
+                        <span className="flex-1 text-sm font-medium">
+                          {u.username}
+                        </span>
                         <span className="flex items-center gap-1.5 w-24">
                           {u.role === "ADMIN" ? (
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
