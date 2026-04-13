@@ -13,6 +13,12 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     deploy:
       resources:
         limits:
@@ -39,7 +45,18 @@ services:
     networks:
       - capypad-net
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /auth/realms/capypad/.well-known/openid-configuration HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; IFS= read -r line <&3; echo \"$$line\" | grep -q \"200\"'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -62,8 +79,10 @@ services:
     networks:
       - capypad-net
     depends_on:
-      - postgres
-      - keycloak
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     deploy:
       resources:
         limits:
