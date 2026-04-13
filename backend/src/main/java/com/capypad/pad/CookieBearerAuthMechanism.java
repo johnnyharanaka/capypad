@@ -1,9 +1,9 @@
 package com.capypad.pad;
 
-import io.quarkus.security.credential.TokenCredential;
 import io.quarkus.security.identity.IdentityProviderManager;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.identity.request.TokenAuthenticationRequest;
+import io.quarkus.oidc.AccessTokenCredential;
 import io.quarkus.vertx.http.runtime.security.ChallengeData;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.quarkus.vertx.http.runtime.security.HttpCredentialTransport;
@@ -36,7 +36,7 @@ public class CookieBearerAuthMechanism implements HttpAuthenticationMechanism {
         }
         LOG.infof("[AUTH MECH] %s — JWT cookie found (%d chars), validating...", path, cookie.getValue().length());
         return identityProviderManager.authenticate(
-                new TokenAuthenticationRequest(new TokenCredential(cookie.getValue(), "bearer")))
+                new TokenAuthenticationRequest(new AccessTokenCredential(cookie.getValue())))
                 .onItem().invoke(identity -> {
                     if (identity == null || identity.getPrincipal() == null) {
                         LOG.warnf("[AUTH MECH] %s — auth returned null identity", path);
