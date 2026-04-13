@@ -82,7 +82,11 @@ function useAuth() {
     })
       .then((res) => res.json())
       .then((data) => {
-        window.location.href = data.url;
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          window.location.href = `${API}/api/auth/login?redirect=${redirect}`;
+        }
       })
       .catch(() => {
         window.location.href = `${API}/api/auth/login?redirect=${redirect}`;
