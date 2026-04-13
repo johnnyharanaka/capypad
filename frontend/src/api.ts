@@ -1,45 +1,32 @@
 /** Base URL for API calls. Empty string in dev (uses Vite proxy), full URL in production. */
 export const API = import.meta.env.VITE_API_URL || '';
 
-const TOKEN_KEY = 'capypad_token';
+/* ── Session info (non-sensitive, stored in localStorage) ─────────── */
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+const USER_KEY = 'capypad_user';
+
+export interface UserInfo {
+  username: string;
+  role: string;
+  isAdmin: boolean;
 }
 
-export function saveToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
-export function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-export interface TokenPayload {
-  upn?: string;
-  preferred_username?: string;
-  groups?: string[];
-  realm_access?: {
-    roles: string[];
-  };
-  exp: number;
-}
-
-export function parseToken(token: string): TokenPayload | null {
+export function getStoredUser(): UserInfo | null {
   try {
-    return JSON.parse(atob(token.split('.')[1])) as TokenPayload;
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-export function isTokenExpired(token: string): boolean {
-  const payload = parseToken(token);
-  if (!payload) return true;
-  return payload.exp * 1000 < Date.now();
+export function storeUser(info: UserInfo): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(info));
+}
+
+export function clearStoredUser(): void {
+  localStorage.removeItem(USER_KEY);
+  // Also clear legacy keys from before cookie migration
+  localStorage.removeItem('capypad_token');
+  localStorage.removeItem('capypad_username');
 }

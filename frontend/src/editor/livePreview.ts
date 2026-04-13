@@ -240,7 +240,7 @@ class ImageWidget extends WidgetType {
         }
         const formData = new FormData();
         formData.append("file", optimized);
-        fetch(`${API}/api/pad/${padPath}/images`, { method: "POST", body: formData })
+        fetch(`${API}/api/pad/${padPath}/images`, { method: "POST", credentials: "include", body: formData })
           .then(async (r) => {
             if (!r.ok) {
               const message = await r
@@ -361,7 +361,7 @@ class ImageWidget extends WidgetType {
       deleteBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        fetch(`${API}/api/images/${imageId}`, { method: "DELETE" }).then(() => {
+        fetch(`${API}/api/images/${imageId}`, { method: "DELETE", credentials: "include" }).then(() => {
           view.dispatch({ changes: { from, to, insert: "" } });
         });
       });

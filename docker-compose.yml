@@ -31,6 +31,9 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
+      KC_HTTP_RELATIVE_PATH: /auth
+    volumes:
+      - ./keycloak/themes/capypad:/opt/keycloak/themes/capypad
     ports:
       - "8180:8080"
     networks:

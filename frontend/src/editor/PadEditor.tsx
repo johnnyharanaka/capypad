@@ -134,6 +134,7 @@ export default function PadCodeEditor({
         formData.append("file", optimized);
         fetch(`${API}/api/pad/${padPath}/images`, {
           method: "POST",
+          credentials: "include",
           body: formData,
         })
           .then(async (r) => {

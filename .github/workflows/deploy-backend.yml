@@ -1,0 +1,63 @@
+name: Deploy Backend to Droplet
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Build backend (Quarkus)
+        working-directory: backend
+        run: ./mvnw clean package -DskipTests -Dquarkus.test.continuous-testing=disabled
+
+      - name: Write .env.production from secret
+        run: echo "${{ secrets.ENV_PRODUCTION }}" > backend/.env.production
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DROPLET_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+
+      - name: Rsync files to Droplet
+        run: |
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude 'frontend/dist' \
+            --exclude 'backend/target' \
+            --exclude 'backend/.env' \
+            --exclude 'backend/data' \
+            -e "ssh -i ~/.ssh/id_deploy" \
+            ./ root@${{ secrets.DROPLET_IP }}:/root/capypad/
+
+      - name: Copy built JAR to Droplet
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/id_deploy" \
+            backend/target/quarkus-app/ root@${{ secrets.DROPLET_IP }}:/root/capypad/backend/target/quarkus-app/
+
+      - name: Deploy on Droplet
+        run: |
+          ssh -i ~/.ssh/id_deploy root@${{ secrets.DROPLET_IP }} << 'EOF'
+            cd /root/capypad
+            cp backend/.env.production backend/.env
+            docker compose up -d --build --force-recreate
+          EOF

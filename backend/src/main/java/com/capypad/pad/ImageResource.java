@@ -15,9 +15,12 @@ import org.jboss.resteasy.reactive.RestForm;
 
 import jakarta.annotation.security.RolesAllowed;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Path("/api/pad")
 public class ImageResource {
@@ -28,6 +31,16 @@ public class ImageResource {
             "image/gif",
             "image/webp"
     );
+
+    private static final Pattern VALID_PAD_PATH = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,99}$");
+
+    // File signature (magic bytes) constants
+    private static final byte[] JPEG_MAGIC = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+    private static final byte[] PNG_MAGIC  = {(byte) 0x89, 0x50, 0x4E, 0x47};
+    private static final byte[] GIF87      = {0x47, 0x49, 0x46, 0x38, 0x37, 0x61};
+    private static final byte[] GIF89      = {0x47, 0x49, 0x46, 0x38, 0x39, 0x61};
+    private static final byte[] RIFF_MAGIC = {0x52, 0x49, 0x46, 0x46};
+    private static final byte[] WEBP_SIG   = {0x57, 0x45, 0x42, 0x50};
 
     @ConfigProperty(name = "capypad.image.max-total-disk-bytes", defaultValue = "5368709120")
     long maxTotalDiskBytes;
@@ -45,6 +58,11 @@ public class ImageResource {
     @Transactional
     @RolesAllowed({"USER", "ADMIN"})
     public Response upload(@PathParam("padPath") String padPath, @RestForm("file") FileUpload file) throws IOException {
+        String normalizedPad = padPath.toLowerCase();
+        if (!VALID_PAD_PATH.matcher(normalizedPad).matches() || normalizedPad.contains("..")) {
+            return Response.status(400).entity("Invalid pad path").build();
+        }
+
         if (file == null || file.filePath() == null) {
             return Response.status(400).entity("No file provided").build();
         }
@@ -57,6 +75,11 @@ public class ImageResource {
         long fileSize = Files.size(file.filePath());
         if (fileSize > 10 * 1024 * 1024) {
             return Response.status(413).entity("File too large. Max 10MB.").build();
+        }
+
+        // Validate file magic bytes match declared Content-Type
+        if (!isValidMagicBytes(file.filePath(), contentType)) {
+            return Response.status(400).entity("File content does not match its declared type").build();
         }
 
         String normalized = padPath.toLowerCase();
@@ -99,5 +122,33 @@ public class ImageResource {
                 updated.totalImageBytes(),
                 updated.totalImageBytesLimit()
         )).build();
+    }
+
+    private boolean isValidMagicBytes(java.nio.file.Path filePath, String contentType) throws IOException {
+        byte[] header = new byte[12];
+        int read;
+        try (InputStream is = Files.newInputStream(filePath)) {
+            read = is.read(header);
+        }
+        if (read < 4) return false;
+
+        return switch (contentType.toLowerCase()) {
+            case "image/jpeg" -> startsWith(header, JPEG_MAGIC);
+            case "image/png"  -> startsWith(header, PNG_MAGIC);
+            case "image/gif"  -> startsWith(header, GIF87) || startsWith(header, GIF89);
+            case "image/webp" -> read >= 12
+                    && startsWith(header, RIFF_MAGIC)
+                    && header[8] == WEBP_SIG[0] && header[9] == WEBP_SIG[1]
+                    && header[10] == WEBP_SIG[2] && header[11] == WEBP_SIG[3];
+            default -> false;
+        };
+    }
+
+    private static boolean startsWith(byte[] data, byte[] prefix) {
+        if (data.length < prefix.length) return false;
+        for (int i = 0; i < prefix.length; i++) {
+            if (data[i] != prefix[i]) return false;
+        }
+        return true;
     }
 }

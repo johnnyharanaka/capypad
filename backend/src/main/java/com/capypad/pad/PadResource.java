@@ -41,11 +41,22 @@ public class PadResource {
     @Inject
     PadCreationLimiter padCreationLimiter;
 
+    /** Only letters, digits, dots, hyphens and underscores — max 100 chars. */
+    private static final Pattern VALID_PATH = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,99}$");
+
+    private void validatePath(String normalized) {
+        if (!VALID_PATH.matcher(normalized).matches() || normalized.contains("..")) {
+            throw new jakarta.ws.rs.BadRequestException(
+                    "Invalid pad path. Use only letters, numbers, dots, hyphens and underscores (1-100 chars).");
+        }
+    }
+
     @GET
     @Path("/{path}")
     @Transactional
     public PadDto get(@PathParam("path") String path) {
         String normalized = path.toLowerCase();
+        validatePath(normalized);
         Pad pad = Pad.findByPath(normalized);
         return toPadDto(normalized, pad != null ? pad.content : "");
     }
@@ -59,6 +70,7 @@ public class PadResource {
             PadUpdateDto dto,
             @Context HttpHeaders headers) {
         String normalized = path.toLowerCase();
+        validatePath(normalized);
 
         String content = dto != null && dto.content() != null ? dto.content() : "";
         int contentBytes = content.getBytes(StandardCharsets.UTF_8).length;
