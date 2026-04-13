@@ -1,12 +1,13 @@
 package com.capypad.pad;
 
-import io.quarkus.security.credential.TokenCredential;
 import io.quarkus.security.identity.IdentityProviderManager;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.identity.request.TokenAuthenticationRequest;
+import io.quarkus.oidc.AccessTokenCredential;
 import io.quarkus.vertx.http.runtime.security.ChallengeData;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.quarkus.vertx.http.runtime.security.HttpCredentialTransport;
+import io.quarkus.vertx.http.runtime.security.HttpSecurityUtils;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.Priority;
@@ -35,8 +36,14 @@ public class CookieBearerAuthMechanism implements HttpAuthenticationMechanism {
             return Uni.createFrom().nullItem();
         }
         LOG.infof("[AUTH MECH] %s — JWT cookie found (%d chars), validating...", path, cookie.getValue().length());
+
+        // OIDC identity provider needs the current RoutingContext on the auth request.
+        // Without it, tenant resolution can fail and auth may end as a generic failure.
+        TokenAuthenticationRequest authRequest = new TokenAuthenticationRequest(new AccessTokenCredential(cookie.getValue()));
+        HttpSecurityUtils.setRoutingContextAttribute(authRequest, context);
+
         return identityProviderManager.authenticate(
-            new TokenAuthenticationRequest(new TokenCredential(cookie.getValue(), "bearer")))
+                authRequest)
                 .onItem().invoke(identity -> {
                     if (identity == null || identity.getPrincipal() == null) {
                         LOG.warnf("[AUTH MECH] %s — auth returned null identity", path);
