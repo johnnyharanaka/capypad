@@ -1,5 +1,5 @@
 <#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=!messagesPerField.existsError('firstName','username','password','password-confirm'); section>
+<@layout.registrationLayout displayMessage=!messagesPerField.existsError('firstName','lastName','username','password','password-confirm'); section>
 
     <#if section = "header">
         <div class="capypad-logo">
@@ -20,6 +20,16 @@
                        aria-invalid="<#if messagesPerField.existsError('firstName')>true</#if>" />
                 <#if messagesPerField.existsError('firstName')>
                     <span class="capypad-error">${kcSanitize(messagesPerField.getFirstError('firstName'))?no_esc}</span>
+                </#if>
+            </div>
+
+            <div class="capypad-field">
+                <label for="lastName" class="capypad-label">${msg("lastName")}</label>
+                <input type="text" id="lastName" name="lastName" value="${(register.formData.lastName!'')}" autocomplete="family-name"
+                       class="capypad-input"
+                       aria-invalid="<#if messagesPerField.existsError('lastName')>true</#if>" />
+                <#if messagesPerField.existsError('lastName')>
+                    <span class="capypad-error">${kcSanitize(messagesPerField.getFirstError('lastName'))?no_esc}</span>
                 </#if>
             </div>
 
