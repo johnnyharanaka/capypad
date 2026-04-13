@@ -37,8 +37,14 @@ public class CookieBearerAuthMechanism implements HttpAuthenticationMechanism {
         LOG.infof("[AUTH MECH] %s — JWT cookie found (%d chars), validating...", path, cookie.getValue().length());
         return identityProviderManager.authenticate(
                 new TokenAuthenticationRequest(new TokenCredential(cookie.getValue(), "bearer")))
-                .onItem().invoke(identity -> LOG.infof("[AUTH MECH] %s — auth OK, principal=%s", path, identity.getPrincipal().getName()))
-                .onFailure().invoke(err -> LOG.errorf("[AUTH MECH] %s — auth FAILED: %s", path, err.getMessage()));
+                .onItem().invoke(identity -> {
+                    if (identity == null || identity.getPrincipal() == null) {
+                        LOG.warnf("[AUTH MECH] %s — auth returned null identity", path);
+                    } else {
+                        LOG.infof("[AUTH MECH] %s — auth OK, principal=%s", path, identity.getPrincipal().getName());
+                    }
+                })
+                .onFailure().invoke(err -> LOG.errorf(err, "[AUTH MECH] %s — auth FAILED: %s", path, err));
     }
 
     @Override

@@ -110,6 +110,7 @@ KEYCLOAK_URL=http://keycloak:8080
 CAPYPAD_FRONTEND_URL=https://seudominio.com
 CAPYPAD_AUTH_CALLBACK_URL=https://seudominio.com/api/auth/callback
 CAPYPAD_KEYCLOAK_EXTERNAL_URL=https://seudominio.com/auth
+CAPYPAD_OIDC_TOKEN_ISSUER=http://keycloak:8080/auth/realms/capypad
 
 # Client secret (gerar no Keycloak admin console)
 KEYCLOAK_CLIENT_SECRET=<secret-do-client>
@@ -120,6 +121,8 @@ CAPYPAD_AUTH_COOKIE_SAME_SITE=Lax
 ```
 
 **Nota:** `KEYCLOAK_URL` usa o hostname interno do Docker (`keycloak:8080`), enquanto `CAPYPAD_KEYCLOAK_EXTERNAL_URL` usa a URL publica (o que o browser do usuario acessa).
+
+**Importante:** `CAPYPAD_OIDC_TOKEN_ISSUER` deve bater exatamente com o claim `iss` do access token emitido pelo Keycloak. Em setup com `start-dev` sem hostname fixo, normalmente sera `http://keycloak:8080/auth/realms/capypad`.
 
 ---
 
