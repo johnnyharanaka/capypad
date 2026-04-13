@@ -155,7 +155,7 @@ public class AuthResource {
 
         // Set JWT cookie and clear PKCE cookie
         String jwtCookie = buildSetCookie(tokenResponse.accessToken());
-        String clearPkce = buildClearCookie(PKCE_COOKIE_NAME);
+        String clearPkce = buildClearCookie(PKCE_COOKIE_NAME, "/api/auth");
 
         return Response.status(302)
                 .location(URI.create(redirectUrl))
@@ -218,8 +218,12 @@ public class AuthResource {
     }
 
     private String buildClearCookie(String name) {
+        return buildClearCookie(name, "/");
+    }
+
+    private String buildClearCookie(String name, String path) {
         StringBuilder sb = new StringBuilder();
-        sb.append(name).append("=; Path=/; HttpOnly; Max-Age=0");
+        sb.append(name).append("=; Path=").append(path).append("; HttpOnly; Max-Age=0");
         sb.append("; SameSite=").append(cookieSameSite);
         if (cookieSecure) sb.append("; Secure");
         return sb.toString();
@@ -288,7 +292,7 @@ public class AuthResource {
         }
         return Response.status(302)
                 .location(URI.create(url))
-                .header("Set-Cookie", buildClearCookie(PKCE_COOKIE_NAME))
+                .header("Set-Cookie", buildClearCookie(PKCE_COOKIE_NAME, "/api/auth"))
                 .build();
     }
 }

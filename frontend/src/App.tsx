@@ -1005,6 +1005,23 @@ function AdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [authMsg, setAuthMsg] = useState<string | null>(null);
+
+  // Handle auth status from callback redirect (?auth=pending, ?auth=error)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authStatus = params.get("auth");
+    if (authStatus === "pending") {
+      setAuthMsg("Conta criada! Aguarde aprovação do administrador.");
+    } else if (authStatus === "error") {
+      const msg = params.get("message");
+      setAuthMsg(msg ? `Erro na autenticação: ${msg}` : "Houve um erro na autenticação.");
+    }
+    if (authStatus) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setTimeout(() => setAuthMsg(null), 8000);
+    }
+  }, []);
   const [loading, setLoading] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(
     null,
@@ -1155,6 +1172,11 @@ function AdminPage() {
         </header>
 
         <main className="max-w-2xl mx-auto px-6 py-8">
+          {authMsg && (
+            <div className="mb-4 px-4 py-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-sm text-center">
+              {authMsg}
+            </div>
+          )}
           {!isAuthenticated ? (
             <div className="text-center text-stone-400 dark:text-stone-500 py-16">
               <p className="mb-4">Faça login para acessar o painel admin.</p>
