@@ -1,5 +1,6 @@
 package com.capypad.pad;
 
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -15,6 +16,7 @@ import java.util.Optional;
 
 @Path("/api/auth")
 @Produces(MediaType.APPLICATION_JSON)
+@PermitAll
 public class AuthResource {
 
     private static final String COOKIE_NAME = "capypad_jwt";
