@@ -1,5 +1,5 @@
 <#import "template.ftl" as layout>
-<@layout.registrationLayout displayMessage=!messagesPerField.existsError('firstName','lastName','email','username','password','password-confirm'); section>
+<@layout.registrationLayout displayMessage=!messagesPerField.existsError('firstName','username','password','password-confirm'); section>
 
     <#if section = "header">
         <div class="capypad-logo">
@@ -14,16 +14,28 @@
         <form id="kc-register-form" action="${url.registrationAction}" method="post">
 
             <div class="capypad-field">
-                <label for="username" class="capypad-label">${msg("username")}</label>
-                <input type="text" id="username" name="username" value="${(register.formData.username!'')}" autocomplete="username"
+                <label for="firstName" class="capypad-label">${msg("firstName")}</label>
+                <input type="text" id="firstName" name="firstName" value="${(register.formData.firstName!'')}" autocomplete="given-name"
                        class="capypad-input"
-                       aria-invalid="<#if messagesPerField.existsError('username')>true</#if>" />
-                <#if messagesPerField.existsError('username')>
-                    <span class="capypad-error">${kcSanitize(messagesPerField.getFirstError('username'))?no_esc}</span>
+                       aria-invalid="<#if messagesPerField.existsError('firstName')>true</#if>" />
+                <#if messagesPerField.existsError('firstName')>
+                    <span class="capypad-error">${kcSanitize(messagesPerField.getFirstError('firstName'))?no_esc}</span>
                 </#if>
             </div>
 
             <#if !realm.registrationEmailAsUsername>
+                <div class="capypad-field">
+                    <label for="username" class="capypad-label">${msg("username")}</label>
+                    <input type="text" id="username" name="username" value="${(register.formData.username!'')}" autocomplete="username"
+                           class="capypad-input"
+                           aria-invalid="<#if messagesPerField.existsError('username')>true</#if>" />
+                    <#if messagesPerField.existsError('username')>
+                        <span class="capypad-error">${kcSanitize(messagesPerField.getFirstError('username'))?no_esc}</span>
+                    </#if>
+                </div>
+            </#if>
+
+            <#if realm.registrationEmailAsUsername>
                 <div class="capypad-field">
                     <label for="email" class="capypad-label">${msg("email")}</label>
                     <input type="email" id="email" name="email" value="${(register.formData.email!'')}" autocomplete="email"
