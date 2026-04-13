@@ -55,6 +55,11 @@ public class UserService {
     public record TokenResponse(String accessToken, String refreshToken, int expiresIn) {}
 
     /**
+     * Minimal token claims useful for authentication diagnostics.
+     */
+    public record TokenDebugInfo(String issuer, String audience, String authorizedParty, String type, Long expiresAtEpoch) {}
+
+    /**
      * Exchanges an authorization code for tokens using PKCE.
      * Uses Jackson ObjectMapper instead of String.split for safe JSON parsing.
      */
@@ -115,6 +120,42 @@ public class UserService {
             return payload.has("preferred_username") ? payload.get("preferred_username").asText() : null;
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    public Optional<TokenDebugInfo> extractTokenDebugInfo(String accessToken) {
+        try {
+            String[] parts = accessToken.split("\\.");
+            if (parts.length < 2) {
+                return Optional.empty();
+            }
+
+            byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
+            JsonNode payload = MAPPER.readTree(decoded);
+
+            String issuer = payload.has("iss") ? payload.get("iss").asText() : null;
+            String audience = null;
+            if (payload.has("aud")) {
+                JsonNode aud = payload.get("aud");
+                if (aud.isTextual()) {
+                    audience = aud.asText();
+                } else if (aud.isArray()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < aud.size(); i++) {
+                        if (i > 0) sb.append(',');
+                        sb.append(aud.get(i).asText());
+                    }
+                    audience = sb.toString();
+                }
+            }
+
+            String authorizedParty = payload.has("azp") ? payload.get("azp").asText() : null;
+            String type = payload.has("typ") ? payload.get("typ").asText() : null;
+            Long exp = payload.has("exp") ? payload.get("exp").asLong() : null;
+
+            return Optional.of(new TokenDebugInfo(issuer, audience, authorizedParty, type, exp));
+        } catch (Exception e) {
+            return Optional.empty();
         }
     }
 

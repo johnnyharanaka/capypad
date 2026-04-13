@@ -157,6 +157,11 @@ public class AuthResource {
         LOG.info("[AUTH CALLBACK] Token exchange OK");
 
         UserService.TokenResponse tokenResponse = tokenResult.get();
+        userService.extractTokenDebugInfo(tokenResponse.accessToken()).ifPresentOrElse(
+            info -> LOG.infof("[AUTH CALLBACK] Token claims: iss=%s, aud=%s, azp=%s, typ=%s, exp=%s",
+                info.issuer(), info.audience(), info.authorizedParty(), info.type(), info.expiresAtEpoch()),
+            () -> LOG.warn("[AUTH CALLBACK] Could not parse token claims for debug")
+        );
 
         // Extract username from the token (preferred_username claim)
         String username = userService.extractUsername(tokenResponse.accessToken());
