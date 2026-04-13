@@ -179,6 +179,10 @@ public class AuthResource {
             return redirectToFrontend(redirectUrl, "pending", null);
         }
 
+        // Users registered directly in Keycloak may miss realm role assignment.
+        // Ensure USER/ADMIN role exists so @RolesAllowed endpoints do not return 403.
+        userService.ensureKeycloakUserRole(localUser.username, localUser.role);
+
         // Set JWT cookie and clear PKCE cookie
         String jwtCookie = buildSetCookie(tokenResponse.accessToken());
         String clearPkce = buildClearCookie(PKCE_COOKIE_NAME, "/api/auth");

@@ -251,7 +251,7 @@ public class UserService {
         user.approved = true;
         user.persist();
 
-        // Enable in Keycloak if disabled
+        // Enable in Keycloak if disabled and ensure the expected realm role exists.
         try {
             List<org.keycloak.representations.idm.UserRepresentation> users =
                 keycloakAdmin.realm("capypad").users().search(user.username);
@@ -261,6 +261,7 @@ public class UserService {
                     userRep.setEnabled(true);
                     keycloakAdmin.realm("capypad").users().get(userRep.getId()).update(userRep);
                 }
+                assignRealmRoleIfMissing(userRep.getId(), user.role.name());
             }
         } catch (Exception e) {
             System.err.println("[CAPYPAD] Failed to enable user in Keycloak: " + e.getClass().getSimpleName());
@@ -350,13 +351,35 @@ public class UserService {
                 keycloakAdmin.realm("capypad").users().search(username);
             if (!created.isEmpty()) {
                 String userId = created.get(0).getId();
-                org.keycloak.representations.idm.RoleRepresentation role =
-                    keycloakAdmin.realm("capypad").roles().get(roleName).toRepresentation();
-                keycloakAdmin.realm("capypad").users().get(userId).roles().realmLevel()
-                    .add(Collections.singletonList(role));
+                assignRealmRoleIfMissing(userId, roleName);
             }
         } catch (Exception e) {
             System.err.println("[CAPYPAD] Failed to assign role '" + roleName + "' to user '" + username + "': " + e.getClass().getSimpleName());
+        }
+    }
+
+    public void ensureKeycloakUserRole(String username, Role role) {
+        try {
+            List<org.keycloak.representations.idm.UserRepresentation> users =
+                keycloakAdmin.realm("capypad").users().search(username);
+            for (org.keycloak.representations.idm.UserRepresentation userRep : users) {
+                if (userRep.getUsername() != null && userRep.getUsername().equalsIgnoreCase(username)) {
+                    assignRealmRoleIfMissing(userRep.getId(), role.name());
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[CAPYPAD] Failed to ensure role '" + role.name() + "' for user '" + username + "': " + e.getClass().getSimpleName());
+        }
+    }
+
+    private void assignRealmRoleIfMissing(String userId, String roleName) {
+        var userRolesApi = keycloakAdmin.realm("capypad").users().get(userId).roles().realmLevel();
+        boolean hasRole = userRolesApi.listAll().stream().anyMatch(r -> roleName.equalsIgnoreCase(r.getName()));
+        if (!hasRole) {
+            org.keycloak.representations.idm.RoleRepresentation role =
+                keycloakAdmin.realm("capypad").roles().get(roleName).toRepresentation();
+            userRolesApi.add(Collections.singletonList(role));
         }
     }
 
