@@ -13,6 +13,7 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.Set;
+import org.jboss.logging.Logger;
 
 /**
  * Reads the JWT from the HttpOnly cookie and feeds it into the OIDC
@@ -22,16 +23,22 @@ import java.util.Set;
 @Priority(2000)
 public class CookieBearerAuthMechanism implements HttpAuthenticationMechanism {
 
+    private static final Logger LOG = Logger.getLogger(CookieBearerAuthMechanism.class);
     private static final String COOKIE_NAME = "capypad_jwt";
 
     @Override
     public Uni<SecurityIdentity> authenticate(RoutingContext context, IdentityProviderManager identityProviderManager) {
+        String path = context.request().path();
         io.vertx.core.http.Cookie cookie = context.request().getCookie(COOKIE_NAME);
         if (cookie == null) {
+            LOG.infof("[AUTH MECH] %s — no JWT cookie", path);
             return Uni.createFrom().nullItem();
         }
+        LOG.infof("[AUTH MECH] %s — JWT cookie found (%d chars), validating...", path, cookie.getValue().length());
         return identityProviderManager.authenticate(
-                new TokenAuthenticationRequest(new TokenCredential(cookie.getValue(), "bearer")));
+                new TokenAuthenticationRequest(new TokenCredential(cookie.getValue(), "bearer")))
+                .onItem().invoke(identity -> LOG.infof("[AUTH MECH] %s — auth OK, principal=%s", path, identity.getPrincipal().getName()))
+                .onFailure().invoke(err -> LOG.errorf("[AUTH MECH] %s — auth FAILED: %s", path, err.getMessage()));
     }
 
     @Override
