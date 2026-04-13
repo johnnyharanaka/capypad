@@ -61,6 +61,7 @@ public class UserService {
     public Optional<TokenResponse> exchangeCodeForToken(String code, String codeVerifier, String redirectUri) {
         try {
             HttpClient client = HttpClient.newHttpClient();
+            String tokenUrl = oidcAuthServerUrl + "/protocol/openid-connect/token";
             String form = "grant_type=authorization_code"
                     + "&client_id=" + encode(keycloakClientId)
                     + "&client_secret=" + encode(keycloakClientSecret)
@@ -68,29 +69,34 @@ public class UserService {
                     + "&redirect_uri=" + encode(redirectUri)
                     + "&code_verifier=" + encode(codeVerifier);
 
+            System.out.println("[CAPYPAD TOKEN] POSTing to: " + tokenUrl);
+            System.out.println("[CAPYPAD TOKEN] redirect_uri=" + redirectUri);
+
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(oidcAuthServerUrl + "/protocol/openid-connect/token"))
+                    .uri(URI.create(tokenUrl))
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(form))
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("[CAPYPAD TOKEN] Response status: " + response.statusCode());
 
             if (response.statusCode() == 200) {
                 JsonNode json = MAPPER.readTree(response.body());
+                System.out.println("[CAPYPAD TOKEN] SUCCESS — got access_token");
                 return Optional.of(new TokenResponse(
                         json.get("access_token").asText(),
                         json.has("refresh_token") ? json.get("refresh_token").asText() : null,
                         json.has("expires_in") ? json.get("expires_in").asInt() : 300
                 ));
             } else {
-                // Log only the error type, not the full body (which may contain sensitive data)
                 JsonNode errorJson = MAPPER.readTree(response.body());
                 String errorType = errorJson.has("error") ? errorJson.get("error").asText() : "unknown";
-                System.err.println("[CAPYPAD] Token exchange failed: " + errorType + " (status " + response.statusCode() + ")");
+                String errorDesc = errorJson.has("error_description") ? errorJson.get("error_description").asText() : "";
+                System.err.println("[CAPYPAD TOKEN] FAILED: " + errorType + " — " + errorDesc + " (status " + response.statusCode() + ")");
             }
         } catch (Exception e) {
-            System.err.println("[CAPYPAD] Token exchange exception: " + e.getClass().getSimpleName());
+            System.err.println("[CAPYPAD TOKEN] Exception: " + e.getClass().getSimpleName() + " — " + e.getMessage());
         }
         return Optional.empty();
     }
