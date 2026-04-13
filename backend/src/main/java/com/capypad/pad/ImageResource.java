@@ -13,6 +13,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.jboss.resteasy.reactive.RestForm;
 
+import jakarta.annotation.security.RolesAllowed;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Set;
@@ -42,6 +43,7 @@ public class ImageResource {
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
+    @RolesAllowed({"USER", "ADMIN"})
     public Response upload(@PathParam("padPath") String padPath, @RestForm("file") FileUpload file) throws IOException {
         if (file == null || file.filePath() == null) {
             return Response.status(400).entity("No file provided").build();

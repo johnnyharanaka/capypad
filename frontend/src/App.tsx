@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { API } from "./api";
+import { API, authHeaders, clearToken, getToken, isTokenExpired, parseToken, saveToken } from "./api";
 import { jsPDF } from "jspdf";
 import { marked } from "marked";
 import katex from "katex";
@@ -34,6 +34,310 @@ function useDarkMode() {
   }, [dark]);
 
   return [dark, () => setDark(!dark)] as const;
+}
+
+function useAuth() {
+  const [token, setToken] = useState<string | null>(() => {
+    const t = getToken();
+    if (t && !isTokenExpired(t)) return t;
+    clearToken();
+    return null;
+  });
+
+  const login = useCallback(async (username: string, password: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) {
+        try {
+          const data = await res.json();
+          if (data.error === "UPDATE_PASSWORD_REQUIRED") return "UPDATE_PASSWORD_REQUIRED";
+        } catch {}
+        return "Credenciais inválidas";
+      }
+      const data = await res.json();
+      saveToken(data.token);
+      if (data.username) localStorage.setItem("capypad_username", data.username);
+      setToken(data.token);
+      return null;
+    } catch {
+      return "Erro de conexão. Tente novamente.";
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    clearToken();
+    localStorage.removeItem("capypad_username");
+    setToken(null);
+  }, []);
+
+  const payload = token ? parseToken(token) : null;
+  const isAuthenticated = !!token;
+  const isAdmin = payload?.groups?.includes("ADMIN") || payload?.realm_access?.roles?.includes("ADMIN") || false;
+  const username = localStorage.getItem("capypad_username") || payload?.upn || payload?.preferred_username || null;
+
+  const directLogin = useCallback((token: string, user: string) => {
+    saveToken(token);
+    localStorage.setItem("capypad_username", user);
+    setToken(token);
+  }, []);
+
+  return { isAuthenticated, isAdmin, username, login, logout, directLogin, token };
+}
+
+function LoginModal({
+  onClose,
+  onLogin,
+  onDirectLogin,
+}: {
+  onClose: () => void;
+  onLogin: (username: string, password: string) => Promise<string | null>;
+  onDirectLogin: (token: string, username: string) => void;
+}) {
+  const [mode, setMode] = useState<"login" | "register" | "update-password">("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const switchMode = (m: "login" | "register") => {
+    setMode(m);
+    setError(null);
+    setSuccess(null);
+    setUsername("");
+    setPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const submitLogin = async () => {
+    if (!username || !password) {
+      setError("Preencha usuário e senha");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const err = await onLogin(username, password);
+    setLoading(false);
+    if (err === "UPDATE_PASSWORD_REQUIRED") {
+      setMode("update-password");
+      setError("Você precisa alterar a senha inicial para continuar");
+    } else if (err) {
+      setError(err);
+    } else {
+      onClose();
+    }
+  };
+
+  const submitRegister = async () => {
+    if (!username || !password) {
+      setError("Preencha usuário e senha");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("As senhas não coincidem");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Erro ao registrar");
+      } else {
+        setSuccess("Conta criada! Aguarde aprovação do administrador.");
+        setUsername("");
+        setPassword("");
+        setConfirmPassword("");
+      }
+    } catch {
+      setError("Erro de conexão");
+    }
+    setLoading(false);
+  };
+
+  const submitUpdatePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      setError("Preencha a nova senha");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("A nova senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("As senhas não coincidem");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/auth/update-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, oldPassword: password, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Erro ao alterar a senha");
+        setLoading(false);
+        return;
+      }
+      // If the backend returned a token directly, use it
+      if (data.token) {
+        onDirectLogin(data.token, data.username || username);
+        onClose();
+      } else {
+        // Fallback: password changed but no token, user must login manually
+        setMode("login");
+        setPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setError(null);
+        setSuccess("Senha alterada! Faça login com a nova senha.");
+      }
+    } catch {
+      setError("Erro de conexão");
+    }
+    setLoading(false);
+  };
+
+  const submit = mode === "login" ? submitLogin : mode === "register" ? submitRegister : submitUpdatePassword;
+
+  const inputClass =
+    "w-full border border-stone-200 dark:border-stone-600 rounded-lg px-3 py-2 text-sm bg-transparent text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 placeholder:text-stone-400";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && mode !== "update-password") onClose();
+      }}
+    >
+      <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
+        {mode !== "update-password" && (
+          <div className="flex gap-4 border-b border-stone-200 dark:border-stone-700 pb-2">
+            <button
+              onClick={() => switchMode("login")}
+              className={`text-sm font-medium pb-1 transition-colors ${mode === "login" ? "text-stone-800 dark:text-stone-100 border-b-2 border-stone-800 dark:border-stone-100" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"}`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => switchMode("register")}
+              className={`text-sm font-medium pb-1 transition-colors ${mode === "register" ? "text-stone-800 dark:text-stone-100 border-b-2 border-stone-800 dark:border-stone-100" : "text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"}`}
+            >
+              Registrar
+            </button>
+          </div>
+        )}
+        
+        {mode === "update-password" && (
+          <div className="pb-2 text-center text-stone-800 dark:text-stone-200 font-medium">Crie sua nova senha</div>
+        )}
+
+        {success ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
+            <button
+              onClick={() => switchMode("login")}
+              className="mt-3 text-sm text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 transition-colors underline"
+            >
+              Ir para login
+            </button>
+          </div>
+        ) : (
+          <>
+            {(mode === "login" || mode === "register") && (
+              <>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Usuário"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                  className={inputClass}
+                />
+                <input
+                  type="password"
+                  placeholder="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                  className={inputClass}
+                />
+                {mode === "register" && (
+                  <input
+                    type="password"
+                    placeholder="Confirmar senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && submit()}
+                    className={inputClass}
+                  />
+                )}
+              </>
+            )}
+
+            {mode === "update-password" && (
+              <>
+                <input
+                  autoFocus
+                  type="password"
+                  placeholder="Nova senha"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                  className={inputClass}
+                />
+                <input
+                  type="password"
+                  placeholder="Confirmar nova senha"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submit()}
+                  className={inputClass}
+                />
+              </>
+            )}
+
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <button
+              onClick={submit}
+              disabled={loading}
+              className="w-full bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm font-medium hover:opacity-80 transition-opacity disabled:opacity-50"
+            >
+              {loading
+                ? mode === "login"
+                  ? "Entrando..."
+                  : "Processando..."
+                : mode === "login"
+                  ? "Entrar"
+                  : mode === "register"
+                  ? "Criar conta"
+                  : "Salvar nova senha"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ThemeToggle({ dark, toggle }: { dark: boolean; toggle: () => void }) {
@@ -132,8 +436,12 @@ function CopyUrlButton() {
   );
 }
 
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 function renderImages(text: string): string {
-  return text.replace(/\\image\[([^\]|]+)(?:\|(\d+))?\]/g, (_, id, width) => {
+  return text.replace(/\\image\[([^\]|]+)(?:\|(\d+))?\]/g, (match, id, width) => {
+    if (!UUID_RE.test(id)) return match;
     const style = width
       ? `width:${width}px;max-width:100%;border-radius:6px`
       : `max-width:100%;border-radius:6px`;
@@ -669,9 +977,11 @@ function PadEditorPage({ padPath }: { padPath: string }) {
     null,
   );
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
   const editorViewRef = useRef<EditorView | null>(null);
+  const { isAuthenticated, isAdmin, username, login, logout, directLogin } = useAuth();
 
   const applyUploadLimits = useCallback(
     (next: {
@@ -731,19 +1041,30 @@ function PadEditorPage({ padPath }: { padPath: string }) {
   }, [padPath, applyUploadLimits]);
 
   useEffect(() => {
-    if (content === null) return;
+    if (content === null || !isAuthenticated) return;
     const timeout = setTimeout(() => {
       setSaving(true);
       fetch(`${API}/api/pad/${padPath}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ content }),
-      }).finally(() => setSaving(false));
+      })
+        .then((res) => {
+          if (res.status === 401) {
+            logout();
+            setShowLogin(true);
+          }
+        })
+        .finally(() => setSaving(false));
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [content, padPath]);
+  }, [content, padPath, isAuthenticated, logout]);
 
   return (
+    <>
+    {showLogin && (
+      <LoginModal onClose={() => setShowLogin(false)} onLogin={login} onDirectLogin={directLogin} />
+    )}
     <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
       <header className="sticky top-0 z-10 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md px-12 py-4 flex items-center shrink-0">
         <a
@@ -765,6 +1086,43 @@ function PadEditorPage({ padPath }: { padPath: string }) {
               {words}w · {chars}c
             </span>
           </span>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-1.5">
+              {isAdmin && (
+                <a
+                  href={`${import.meta.env.BASE_URL}admin`}
+                  className="text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+                >
+                  admin
+                </a>
+              )}
+              <span className="text-[11px] text-stone-400 dark:text-stone-500 max-w-[80px] truncate hidden sm:inline">
+                {username}
+              </span>
+              <button
+                onClick={logout}
+                className="p-1.5 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                aria-label="Logout"
+                title="Logout"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLogin(true)}
+              className="flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors px-1.5 py-1 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700"
+              title="Login to edit"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                <path fillRule="evenodd" d="M8 1a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7ZM4.5 4.5a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0ZM2 13.5A3.5 3.5 0 0 1 5.5 10h5a3.5 3.5 0 0 1 3.5 3.5v.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-.5Z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Login to edit</span>
+            </button>
+          )}
           <SaveIndicator saving={saving} />
           <DownloadPdfButton content={content ?? ""} padPath={padPath} />
           <CopyUrlButton />
@@ -790,6 +1148,7 @@ function PadEditorPage({ padPath }: { padPath: string }) {
             onChange={setContent}
             dark={dark}
             padPath={padPath}
+            readOnly={!isAuthenticated}
             uploadBlocked={uploadBlocked}
             uploadBlockReason={uploadBlockReason}
             onUploadLimitsUpdate={applyUploadLimits}
@@ -802,6 +1161,249 @@ function PadEditorPage({ padPath }: { padPath: string }) {
       </div>
       <FloatingDock editorView={editorViewRef.current} />
     </div>
+    </>
+  );
+}
+
+function AdminPage() {
+  const [dark, toggle] = useDarkMode();
+  const { isAuthenticated, isAdmin, username, login, logout, directLogin } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
+  const [users, setUsers] = useState<{ id: number; username: string; role: string; approved: boolean }[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [generatedUser, setGeneratedUser] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const fetchUsers = useCallback(async () => {
+    const res = await fetch(`${API}/api/admin/users`, {
+      headers: { ...authHeaders() },
+    });
+    if (res.ok) setUsers(await res.json());
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) fetchUsers();
+  }, [isAuthenticated, isAdmin, fetchUsers]);
+
+  const createUser = async () => {
+    if (!newUsername) { setError("Preencha o nome de usuário"); return; }
+    setLoading(true); setError(null);
+    const res = await fetch(`${API}/api/admin/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ username: newUsername, role: "USER" }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Erro ao criar usuário");
+      return;
+    }
+    const data = await res.json();
+    setGeneratedUser(data.username);
+    setGeneratedPassword(data.generatedPassword);
+    setCopied(false);
+    setNewUsername(""); setShowCreate(false);
+    fetchUsers();
+  };
+
+  const approveUser = async (id: number) => {
+    await fetch(`${API}/api/admin/users/${id}/approve`, {
+      method: "PUT",
+      headers: { ...authHeaders() },
+    });
+    fetchUsers();
+  };
+
+  const deleteUser = async (id: number) => {
+    if (!confirm("Tem certeza que deseja remover este usuário?")) return;
+    await fetch(`${API}/api/admin/users/${id}`, {
+      method: "DELETE",
+      headers: { ...authHeaders() },
+    });
+    fetchUsers();
+  };
+
+  const copyPassword = () => {
+    if (generatedPassword) {
+      navigator.clipboard.writeText(generatedPassword);
+      setCopied(true);
+    }
+  };
+
+  const pendingUsers = users.filter((u) => !u.approved);
+  const approvedUsers = users.filter((u) => u.approved);
+
+  return (
+    <>
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} onLogin={login} onDirectLogin={directLogin} />}
+
+      {generatedPassword && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setGeneratedPassword(null)}
+        >
+          <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
+            <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
+              Usuário criado
+            </h2>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Envie a senha abaixo para <span className="font-medium text-stone-700 dark:text-stone-200">{generatedUser}</span>.
+              Ela não será exibida novamente.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-stone-100 dark:bg-stone-700 rounded-lg px-3 py-2 text-sm font-mono text-stone-800 dark:text-stone-100 select-all">
+                {generatedPassword}
+              </code>
+              <button
+                onClick={copyPassword}
+                className="text-xs bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-3 py-2 hover:opacity-80 transition-opacity whitespace-nowrap"
+              >
+                {copied ? "Copiado!" : "Copiar"}
+              </button>
+            </div>
+            <button
+              onClick={() => setGeneratedPassword(null)}
+              className="w-full border border-stone-200 dark:border-stone-700 rounded-lg py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="min-h-screen bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
+        <header className="sticky top-0 z-10 bg-stone-50/80 dark:bg-stone-900/80 backdrop-blur-md px-8 py-4 flex items-center gap-4 border-b border-stone-200/60 dark:border-stone-700/60">
+          <a href={import.meta.env.BASE_URL} className="no-underline hover:opacity-70 transition-opacity">
+            <Logo className="text-sm" />
+          </a>
+          <span className="text-stone-400 dark:text-stone-500 text-sm">/admin</span>
+          <div className="flex-1" />
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-stone-500">{username}</span>
+              <button onClick={logout} className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 transition-colors">Logout</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowLogin(true)} className="text-sm text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 transition-colors">Login</button>
+          )}
+          <ThemeToggle dark={dark} toggle={toggle} />
+        </header>
+
+        <main className="max-w-2xl mx-auto px-6 py-8">
+          {!isAuthenticated ? (
+            <div className="text-center text-stone-400 dark:text-stone-500 py-16">
+              <p className="mb-4">Faça login para acessar o painel admin.</p>
+              <button onClick={() => setShowLogin(true)} className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-4 py-2 hover:opacity-80 transition-opacity">Login</button>
+            </div>
+          ) : !isAdmin ? (
+            <div className="text-center text-stone-400 dark:text-stone-500 py-16">
+              <p>Acesso restrito a administradores.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-lg font-semibold">Usuários</h1>
+                <button
+                  onClick={() => setShowCreate(!showCreate)}
+                  className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-3 py-1.5 hover:opacity-80 transition-opacity"
+                >
+                  + Criar usuário
+                </button>
+              </div>
+
+              {showCreate && (
+                <div className="mb-6 p-4 border border-stone-200 dark:border-stone-700 rounded-xl flex flex-col gap-3">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Usuário"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && createUser()}
+                    className="border border-stone-200 dark:border-stone-600 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 placeholder:text-stone-400"
+                  />
+                  <p className="text-xs text-stone-400">A senha será gerada automaticamente.</p>
+                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={createUser} disabled={loading} className="flex-1 bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm hover:opacity-80 transition-opacity disabled:opacity-50">
+                      {loading ? "Criando..." : "Criar"}
+                    </button>
+                    <button onClick={() => { setShowCreate(false); setError(null); }} className="flex-1 border border-stone-200 dark:border-stone-700 rounded-lg py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {pendingUsers.length > 0 && (
+                <div className="mb-6">
+                  <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 mb-3">Pendentes</h2>
+                  <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-amber-200 dark:border-amber-700/50 rounded-xl overflow-hidden">
+                    {pendingUsers.map((u) => (
+                      <div key={u.id} className="flex items-center px-4 py-3 bg-amber-50/50 dark:bg-amber-900/10">
+                        <span className="flex-1 text-sm font-medium">{u.username}</span>
+                        <span className="text-xs text-amber-600 dark:text-amber-400 mr-4">pendente</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => approveUser(u.id)}
+                            className="text-xs text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+                          >
+                            Aprovar
+                          </button>
+                          <button
+                            onClick={() => deleteUser(u.id)}
+                            className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                          >
+                            Recusar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
+                {approvedUsers.length === 0 && pendingUsers.length === 0 && (
+                  <p className="text-sm text-stone-400 text-center py-8">Nenhum usuário cadastrado.</p>
+                )}
+                {approvedUsers.map((u) => (
+                  <div key={u.id} className="flex items-center px-4 py-3 bg-white dark:bg-stone-800/50">
+                    <span className="flex-1 text-sm font-medium">{u.username}</span>
+                    <span className="flex items-center gap-1.5 w-24">
+                      {u.role === "ADMIN" ? (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
+                          ADMIN
+                        </span>
+                      ) : (
+                        <span className="text-xs text-stone-400 dark:text-stone-500 px-1">
+                          USER
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center justify-end gap-3 w-32">
+                      {u.username !== username && (
+                        <button
+                          onClick={() => deleteUser(u.id)}
+                          className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    </>
   );
 }
 
@@ -812,6 +1414,7 @@ function App() {
   const padPath = stripped.replace(/^\/+/, "").toLowerCase();
 
   if (!padPath) return <Home />;
+  if (padPath === "admin") return <AdminPage />;
   return <PadEditorPage padPath={padPath} />;
 }
 

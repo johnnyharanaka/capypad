@@ -1,5 +1,6 @@
 package com.capypad.pad;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
@@ -42,6 +43,7 @@ public class PadResource {
 
     @GET
     @Path("/{path}")
+    @Transactional
     public PadDto get(@PathParam("path") String path) {
         String normalized = path.toLowerCase();
         Pad pad = Pad.findByPath(normalized);
@@ -51,6 +53,7 @@ public class PadResource {
     @PUT
     @Path("/{path}")
     @Transactional
+    @RolesAllowed({"USER", "ADMIN"})
     public Response put(
             @PathParam("path") String path,
             PadUpdateDto dto,

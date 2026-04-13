@@ -3,6 +3,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { EditorView, ViewPlugin } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { createLivePreview, livePreviewTheme } from "./livePreview";
@@ -84,6 +85,7 @@ interface Props {
   onChange: (value: string) => void;
   dark: boolean;
   padPath: string;
+  readOnly?: boolean;
   uploadBlocked: boolean;
   uploadBlockReason: string | null;
   onUploadLimitsUpdate: (next: {
@@ -101,6 +103,7 @@ export default function PadCodeEditor({
   onChange,
   dark,
   padPath,
+  readOnly = false,
   uploadBlocked,
   uploadBlockReason,
   onUploadLimitsUpdate,
@@ -194,6 +197,7 @@ export default function PadCodeEditor({
 
       return [
       cleanTheme,
+      EditorState.readOnly.of(readOnly),
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(markdownHighlight),
       createLivePreview({
@@ -351,6 +355,7 @@ export default function PadCodeEditor({
     ];},
     [
       padPath,
+      readOnly,
       uploadBlocked,
       uploadBlockReason,
       onUploadLimitsUpdate,

@@ -1,6 +1,7 @@
 package com.capypad.pad;
 
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
@@ -20,6 +21,7 @@ class PadResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "testuser", roles = "USER")
     void putAndGetPad() {
         given()
             .contentType("application/json")
@@ -38,6 +40,7 @@ class PadResourceTest {
     }
 
     @Test
+    @TestSecurity(user = "testuser", roles = "USER")
     void updateExistingPad() {
         given()
             .contentType("application/json")

@@ -1,6 +1,7 @@
 package com.capypad.pad;
 
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -15,6 +16,7 @@ import static org.hamcrest.Matchers.equalTo;
 class ImageUploadProtectionTest {
 
     @Test
+    @TestSecurity(user = "testuser", roles = "USER")
     void blocksUploadWhenImageCountLimitIsReached() throws IOException {
         String padPath = "count-limit-" + UUID.randomUUID();
         Path image = createTempImage(8);
@@ -33,6 +35,7 @@ class ImageUploadProtectionTest {
     }
 
     @Test
+    @TestSecurity(user = "testuser", roles = "USER")
     void blocksUploadWhenStorageLimitIsReached() throws IOException {
         String padPath = "storage-limit-" + UUID.randomUUID();
         Path large = createTempImage(150);
@@ -50,6 +53,7 @@ class ImageUploadProtectionTest {
     }
 
     @Test
+    @TestSecurity(user = "testuser", roles = "USER")
     void blocksUploadWhenIpRateLimitIsExceeded() throws IOException {
         String padPath = "rate-limit-" + UUID.randomUUID();
         Path image = createTempImage(8);

@@ -1,5 +1,6 @@
 package com.capypad.pad;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
@@ -55,6 +56,7 @@ public class ImageServeResource {
     @DELETE
     @Path("/{imageId}")
     @Transactional
+    @RolesAllowed({"USER", "ADMIN"})
     public Response delete(@PathParam("imageId") String imageId) {
         if (imageId == null || !UUID_PATTERN.matcher(imageId).matches()) {
             return Response.status(400).build();

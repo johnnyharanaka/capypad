@@ -30,3 +30,6 @@ data/
 .env.*
 !.env.example
 deploy.sh
+
+# JWT private key — nunca commitar
+privateKey.pem
