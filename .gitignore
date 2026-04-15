@@ -29,7 +29,7 @@ data/
 .env
 .env.*
 !.env.example
-deploy.sh
+kc_token.txt
 
 # JWT private key — nunca commitar
 privateKey.pem

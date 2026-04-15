@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -14,7 +12,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -41,7 +39,7 @@ services:
     volumes:
       - ./keycloak/themes/capypad:/opt/keycloak/themes/capypad
     ports:
-      - "8180:8080"
+      - "127.0.0.1:8180:8080"
     networks:
       - capypad-net
     depends_on:
@@ -66,7 +64,7 @@ services:
     build: ./backend
     container_name: capypad-backend
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - capypad-data:/app/data
     env_file:
