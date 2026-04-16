@@ -293,6 +293,7 @@ class ImageWidget extends WidgetType {
       if (this.width) frame.style.width = `${this.width}px`;
 
       const img = document.createElement("img");
+      img.crossOrigin = "anonymous";
       img.src = `${API}/api/images/${this.imageId}`;
       img.className = "cm-live-image";
       img.alt = "Uploaded image";

@@ -63,7 +63,10 @@ async function fetchImageDataUrl(imageId: string): Promise<string | null> {
 
   for (const url of candidates) {
     try {
-      const response = await fetch(url, { credentials: "omit" });
+      const response = await fetch(url, {
+        credentials: "omit",
+        cache: "reload",
+      });
       if (!response.ok) continue;
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.startsWith("image/")) continue;
@@ -96,7 +99,10 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
 
       if (shouldHydrateFromEndpoint) {
         try {
-          const response = await fetch(endpoint!, { credentials: "omit" });
+          const response = await fetch(endpoint!, {
+            credentials: "omit",
+            cache: "reload",
+          });
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = await blobToDataUrl(blob);
@@ -118,7 +124,10 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
         !shouldHydrateFromEndpoint
       ) {
         try {
-          const response = await fetch(finalSrc, { credentials: "omit" });
+          const response = await fetch(finalSrc, {
+            credentials: "omit",
+            cache: "reload",
+          });
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = await blobToDataUrl(blob);
@@ -252,7 +261,7 @@ async function renderImages(text: string): Promise<string> {
 
       return {
         fullMatch,
-        replacement: `<img data-capypad-image-id="${imageId}" src="${src}" alt="image" style="${style}">`,
+        replacement: `<img data-capypad-image-id="${imageId}" src="${src}" alt="image" crossorigin="anonymous" style="${style}">`,
       };
     }),
   );
