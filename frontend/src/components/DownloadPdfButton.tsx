@@ -92,7 +92,8 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
 
       const src = img.getAttribute("src");
       const shouldHydrateFromEndpoint = Boolean(
-        endpoint && (!src || src === endpoint || src.startsWith("/api/images/")),
+        endpoint &&
+        (!src || src === endpoint || src.startsWith("/api/images/")),
       );
 
       if (shouldHydrateFromEndpoint) {
@@ -116,7 +117,11 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
       }
 
       const finalSrc = img.getAttribute("src");
-      if (finalSrc && !finalSrc.startsWith("data:") && !shouldHydrateFromEndpoint) {
+      if (
+        finalSrc &&
+        !finalSrc.startsWith("data:") &&
+        !shouldHydrateFromEndpoint
+      ) {
         try {
           let response = await fetch(finalSrc, { credentials: "include" });
           if (!response.ok) {
@@ -155,7 +160,10 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
 
 type VerticalRange = { top: number; bottom: number };
 
-function getImageRanges(container: HTMLElement, maxRangeHeightPx: number): VerticalRange[] {
+function getImageRanges(
+  container: HTMLElement,
+  maxRangeHeightPx: number,
+): VerticalRange[] {
   const containerRect = container.getBoundingClientRect();
   const contentHeight = Math.ceil(container.scrollHeight);
   const ranges: VerticalRange[] = [];
@@ -208,6 +216,27 @@ function getNextPageBreak(
   return breakPx;
 }
 
+function fitImagesForPdf(container: HTMLElement, pageHeightPx: number): void {
+  const maxImageHeightPx = Math.round(pageHeightPx * 0.92);
+
+  for (const img of Array.from(container.querySelectorAll("img"))) {
+    const rect = img.getBoundingClientRect();
+    const currentW = rect.width > 0 ? rect.width : img.naturalWidth;
+    const currentH = rect.height > 0 ? rect.height : img.naturalHeight;
+    if (currentW <= 0 || currentH <= 0) continue;
+
+    // Keep the DOM proportion; only shrink if a single image is taller than a PDF page.
+    const scale = Math.min(1, maxImageHeightPx / currentH);
+
+    if (scale >= 0.999) continue;
+
+    const targetW = Math.max(80, Math.floor(currentW * scale));
+    img.style.width = `${targetW}px`;
+    img.style.height = "auto";
+    img.style.maxWidth = "100%";
+  }
+}
+
 async function renderImages(text: string): Promise<string> {
   const regex = /\\image\[([^\]|]+)(?:\|(\d+))?\]/g;
   const matches = Array.from(text.matchAll(regex));
@@ -221,9 +250,11 @@ async function renderImages(text: string): Promise<string> {
       if (!imageId) return { fullMatch, replacement: fullMatch };
 
       const style = width
-        ? `width:${width}px;max-width:100%;border-radius:6px`
-        : `max-width:100%;border-radius:6px`;
-      const endpoint = buildImageCandidates(imageId)[0] ?? `${API}/api/images/${encodeURIComponent(imageId)}`;
+        ? `width:${width}px;max-width:100%;max-height:none;height:auto;border-radius:6px;display:block`
+        : `max-width:100%;max-height:500px;height:auto;border-radius:6px;display:block`;
+      const endpoint =
+        buildImageCandidates(imageId)[0] ??
+        `${API}/api/images/${encodeURIComponent(imageId)}`;
       const dataUrl = await fetchImageDataUrl(imageId);
       const src = dataUrl ?? endpoint;
 
@@ -244,6 +275,25 @@ async function renderImages(text: string): Promise<string> {
 function normalizePdfMarkdown(text: string): string {
   // Support escaped newlines coming from pasted/serialized content.
   return text.replace(/\\n/g, "\n");
+}
+
+function getPdfReferenceWidthPx(): number {
+  const candidates = [
+    ".cm-editor .cm-content",
+    ".cm-editor .cm-scroller",
+    ".cm-editor",
+  ];
+
+  for (const selector of candidates) {
+    const el = document.querySelector(selector) as HTMLElement | null;
+    if (!el) continue;
+    const width = Math.round(el.getBoundingClientRect().width);
+    if (width > 0) {
+      return Math.max(520, Math.min(1800, width));
+    }
+  }
+
+  return 700;
 }
 
 function renderAlignment(html: string): string {
@@ -292,9 +342,10 @@ export default function DownloadPdfButton({
     );
     const html = renderLatex(rawHtml);
 
+    const referenceWidthPx = getPdfReferenceWidthPx();
+
     const container = document.createElement("div");
-    container.style.cssText =
-      "position:fixed;left:-10000px;top:0;width:700px;padding:32px;font-family:system-ui,sans-serif;font-size:13px;line-height:1.6;color:#1c1917;background:#fff;z-index:-1;pointer-events:none;box-sizing:border-box;";
+    container.style.cssText = `position:fixed;left:-10000px;top:0;width:${referenceWidthPx}px;padding:16px 48px 60px 16px;font-family:system-ui,sans-serif;font-size:16px;line-height:1.7;color:#1c1917;background:#fff;z-index:-1;pointer-events:none;box-sizing:border-box;`;
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = "https://cdn.jsdelivr.net/npm/katex@0.16.45/dist/katex.min.css";
@@ -331,12 +382,19 @@ export default function DownloadPdfButton({
       await new Promise((r) => setTimeout(r, 100));
 
       const contentWidthPx = Math.ceil(container.getBoundingClientRect().width);
-      const contentHeightPx = Math.ceil(container.scrollHeight);
-      if (contentWidthPx <= 0 || contentHeightPx <= 0) {
+      if (contentWidthPx <= 0) {
         throw new Error("Failed to measure PDF content");
       }
 
       const pageHeightPx = (pageHeightMm * contentWidthPx) / contentWidthMm;
+      fitImagesForPdf(container, pageHeightPx);
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+
+      const contentHeightPx = Math.ceil(container.scrollHeight);
+      if (contentHeightPx <= 0) {
+        throw new Error("Failed to measure PDF content");
+      }
+
       const imageRanges = getImageRanges(container, pageHeightPx * 0.98);
       let offsetPx = 0;
       let pageIndex = 0;
@@ -351,8 +409,7 @@ export default function DownloadPdfButton({
         const captureHeightPx = Math.max(1, nextBreakPx - offsetPx);
 
         const pageViewport = document.createElement("div");
-        pageViewport.style.cssText =
-          `position:fixed;left:-10000px;top:0;width:${contentWidthPx}px;height:${Math.ceil(captureHeightPx)}px;overflow:hidden;background:#fff;`;
+        pageViewport.style.cssText = `position:fixed;left:-10000px;top:0;width:${contentWidthPx}px;height:${Math.ceil(captureHeightPx)}px;overflow:hidden;background:#fff;`;
 
         const pageContent = container.cloneNode(true) as HTMLElement;
         pageContent.style.marginTop = `-${Math.floor(offsetPx)}px`;
@@ -373,7 +430,8 @@ export default function DownloadPdfButton({
             scrollY: 0,
           });
 
-          const pageImageHeightMm = (captureHeightPx * contentWidthMm) / contentWidthPx;
+          const pageImageHeightMm =
+            (captureHeightPx * contentWidthMm) / contentWidthPx;
           if (pageIndex > 0) pdf.addPage();
           pdf.addImage(
             canvas.toDataURL("image/png"),
