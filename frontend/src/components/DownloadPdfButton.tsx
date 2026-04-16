@@ -62,19 +62,17 @@ async function fetchImageDataUrl(imageId: string): Promise<string | null> {
   const candidates = buildImageCandidates(cacheKey);
 
   for (const url of candidates) {
-    for (const credentials of ["include", "omit"] as const) {
-      try {
-        const response = await fetch(url, { credentials });
-        if (!response.ok) continue;
-        const contentType = response.headers.get("content-type") || "";
-        if (!contentType.startsWith("image/")) continue;
-        const blob = await response.blob();
-        const dataUrl = await blobToDataUrl(blob);
-        imageDataUrlCache.set(cacheKey, dataUrl);
-        return dataUrl;
-      } catch {
-        // Try next candidate.
-      }
+    try {
+      const response = await fetch(url, { credentials: "omit" });
+      if (!response.ok) continue;
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.startsWith("image/")) continue;
+      const blob = await response.blob();
+      const dataUrl = await blobToDataUrl(blob);
+      imageDataUrlCache.set(cacheKey, dataUrl);
+      return dataUrl;
+    } catch {
+      // Try next candidate.
     }
   }
 
@@ -98,10 +96,7 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
 
       if (shouldHydrateFromEndpoint) {
         try {
-          let response = await fetch(endpoint!, { credentials: "include" });
-          if (!response.ok) {
-            response = await fetch(endpoint!, { credentials: "omit" });
-          }
+          const response = await fetch(endpoint!, { credentials: "omit" });
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = await blobToDataUrl(blob);
@@ -123,10 +118,7 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
         !shouldHydrateFromEndpoint
       ) {
         try {
-          let response = await fetch(finalSrc, { credentials: "include" });
-          if (!response.ok) {
-            response = await fetch(finalSrc, { credentials: "omit" });
-          }
+          const response = await fetch(finalSrc, { credentials: "omit" });
           if (response.ok) {
             const blob = await response.blob();
             const dataUrl = await blobToDataUrl(blob);
