@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 
 export default function SaveIndicator({ saving }: { saving: boolean }) {
+  const [prevSaving, setPrevSaving] = useState(saving);
   const [showCheck, setShowCheck] = useState(false);
 
-  useEffect(() => {
-    if (!saving && showCheck) return;
-    if (!saving) return;
-    setShowCheck(false);
-    return () => setShowCheck(true);
-  }, [saving]);
+  if (prevSaving !== saving) {
+    setPrevSaving(saving);
+    if (prevSaving && !saving) setShowCheck(true);
+    if (saving) setShowCheck(false);
+  }
 
   useEffect(() => {
     if (!showCheck) return;

@@ -6,7 +6,11 @@ import {
   type ViewUpdate,
   WidgetType,
 } from "@codemirror/view";
-import { type EditorState, type Range } from "@codemirror/state";
+import {
+  type EditorState,
+  type Range,
+  type Text,
+} from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import katex from "katex";
 import "katex/dist/katex.min.css";
@@ -429,7 +433,7 @@ function isOnCursorLines(
   from: number,
   to: number,
   cursorLines: Set<number>,
-  doc: any,
+  doc: Text,
 ): boolean {
   const lineStart = doc.lineAt(from).number;
   const lineEnd = doc.lineAt(to).number;
@@ -441,7 +445,7 @@ function isOnCursorLines(
 
 function addImageDecorations(
   doc: string,
-  docObj: any,
+  docObj: Text,
   cursorLines: Set<number>,
   decorations: Range<Decoration>[],
   view: EditorView,
@@ -492,7 +496,7 @@ function addImageDecorations(
 
 function addInlineDecorations(
   doc: string,
-  docObj: any,
+  docObj: Text,
   cursorLines: Set<number>,
   decorations: Range<Decoration>[],
 ) {
@@ -558,7 +562,7 @@ function addInlineDecorations(
 
 function addLatexDecorations(
   doc: string,
-  docObj: any,
+  docObj: Text,
   cursorLines: Set<number>,
   decorations: Range<Decoration>[],
 ) {

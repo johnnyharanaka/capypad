@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { API } from "../api";
 import PadCodeEditor from "../editor/PadEditor";
@@ -36,23 +36,29 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
-  const editorViewRef = useRef<EditorView | null>(null);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
   const { isAuthenticated, isAdmin, username, login, logout } = useAuth();
-  const [authMsg, setAuthMsg] = useState<string | null>(null);
-
-  useEffect(() => {
+  const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
     if (authStatus === "pending") {
-      setAuthMsg("Conta criada! Aguarde aprovação do administrador.");
-    } else if (authStatus === "error") {
-      setAuthMsg("Houve um erro na autenticação.");
+      return "Conta criada! Aguarde aprovação do administrador.";
     }
-    if (authStatus) {
+    if (authStatus === "error") {
+      return "Houve um erro na autenticação.";
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (!authMsg) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth")) {
       window.history.replaceState({}, "", window.location.pathname);
-      setTimeout(() => setAuthMsg(null), 5000);
     }
-  }, []);
+    const t = setTimeout(() => setAuthMsg(null), 5000);
+    return () => clearTimeout(t);
+  }, [authMsg]);
 
   const applyUploadLimits = useCallback(
     (next: {
@@ -130,7 +136,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         .finally(() => setSaving(false));
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [content, padPath, isAuthenticated, logout]);
+  }, [content, padPath, isAuthenticated, logout, login]);
 
   return (
     <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
@@ -243,13 +249,11 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
             uploadBlockReason={uploadBlockReason}
             onUploadLimitsUpdate={applyUploadLimits}
             onUploadError={onUploadError}
-            onEditorReady={(view) => {
-              editorViewRef.current = view;
-            }}
+            onEditorReady={setEditorView}
           />
         )}
       </div>
-      <FloatingDock editorView={editorViewRef.current} />
+      <FloatingDock editorView={editorView} />
     </div>
   );
 }

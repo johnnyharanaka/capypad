@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { API } from "../api";
 import Logo from "../components/Logo";
 import ThemeToggle from "../components/ThemeToggle";
@@ -22,24 +22,30 @@ export default function AdminPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [authMsg, setAuthMsg] = useState<string | null>(null);
-
-  useEffect(() => {
+  const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
     if (authStatus === "pending") {
-      setAuthMsg("Conta criada! Aguarde aprovação do administrador.");
-    } else if (authStatus === "error") {
+      return "Conta criada! Aguarde aprovação do administrador.";
+    }
+    if (authStatus === "error") {
       const msg = params.get("message");
-      setAuthMsg(
-        msg ? `Erro na autenticação: ${msg}` : "Houve um erro na autenticação.",
-      );
+      return msg
+        ? `Erro na autenticação: ${msg}`
+        : "Houve um erro na autenticação.";
     }
-    if (authStatus) {
+    return null;
+  });
+
+  useEffect(() => {
+    if (!authMsg) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth")) {
       window.history.replaceState({}, "", window.location.pathname);
-      setTimeout(() => setAuthMsg(null), 8000);
     }
-  }, []);
+    const t = setTimeout(() => setAuthMsg(null), 8000);
+    return () => clearTimeout(t);
+  }, [authMsg]);
   const [loading, setLoading] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(
     null,
@@ -47,16 +53,27 @@ export default function AdminPage() {
   const [generatedUser, setGeneratedUser] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = async () => {
     const res = await fetch(`${API}/api/admin/users`, {
       credentials: "include",
     });
     if (res.ok) setUsers(await res.json());
-  }, []);
+  };
 
   useEffect(() => {
-    if (isAuthenticated && isAdmin) fetchUsers();
-  }, [isAuthenticated, isAdmin, fetchUsers]);
+    if (!isAuthenticated || !isAdmin) return;
+    const controller = new AbortController();
+    (async () => {
+      const res = await fetch(`${API}/api/admin/users`, {
+        credentials: "include",
+        signal: controller.signal,
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!controller.signal.aborted) setUsers(data);
+    })().catch(() => {});
+    return () => controller.abort();
+  }, [isAuthenticated, isAdmin]);
 
   const createUser = async () => {
     if (!newUsername) {

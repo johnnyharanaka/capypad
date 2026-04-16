@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 860;
     canvas.height = 400;
-    canvas.toDataURL = vi.fn(() => "data:image/png;base64,abc") as any;
+    canvas.toDataURL = vi.fn(
+      () => "data:image/png;base64,abc",
+    ) as unknown as typeof canvas.toDataURL;
     return canvas;
   });
   const pdfInstances: Array<{
