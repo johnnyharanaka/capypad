@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 import org.keycloak.admin.client.Keycloak;
 import jakarta.inject.Inject;
 
@@ -30,6 +31,7 @@ import java.util.Optional;
 @ApplicationScoped
 public class UserService {
 
+    private static final Logger LOG = Logger.getLogger(UserService.class);
     private static final String PASSWORD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final int GENERATED_PASSWORD_LENGTH = 12;
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -55,11 +57,6 @@ public class UserService {
     public record TokenResponse(String accessToken, String refreshToken, String idToken, int expiresIn) {}
 
     /**
-     * Minimal token claims useful for authentication diagnostics.
-     */
-    public record TokenDebugInfo(String issuer, String audience, String authorizedParty, String type, Long expiresAtEpoch) {}
-
-    /**
      * Exchanges an authorization code for tokens using PKCE.
      * Uses Jackson ObjectMapper instead of String.split for safe JSON parsing.
      */
@@ -74,9 +71,6 @@ public class UserService {
                     + "&redirect_uri=" + encode(redirectUri)
                     + "&code_verifier=" + encode(codeVerifier);
 
-            System.out.println("[CAPYPAD TOKEN] POSTing to: " + tokenUrl);
-            System.out.println("[CAPYPAD TOKEN] redirect_uri=" + redirectUri);
-
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(tokenUrl))
                     .header("Content-Type", "application/x-www-form-urlencoded")
@@ -84,11 +78,9 @@ public class UserService {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("[CAPYPAD TOKEN] Response status: " + response.statusCode());
 
             if (response.statusCode() == 200) {
                 JsonNode json = MAPPER.readTree(response.body());
-                System.out.println("[CAPYPAD TOKEN] SUCCESS — got access_token");
                 return Optional.of(new TokenResponse(
                         json.get("access_token").asText(),
                         json.has("refresh_token") ? json.get("refresh_token").asText() : null,
@@ -99,10 +91,10 @@ public class UserService {
                 JsonNode errorJson = MAPPER.readTree(response.body());
                 String errorType = errorJson.has("error") ? errorJson.get("error").asText() : "unknown";
                 String errorDesc = errorJson.has("error_description") ? errorJson.get("error_description").asText() : "";
-                System.err.println("[CAPYPAD TOKEN] FAILED: " + errorType + " — " + errorDesc + " (status " + response.statusCode() + ")");
+                LOG.errorf("Token exchange failed: %s - %s (status %d)", errorType, errorDesc, response.statusCode());
             }
         } catch (Exception e) {
-            System.err.println("[CAPYPAD TOKEN] Exception: " + e.getClass().getSimpleName() + " — " + e.getMessage());
+            LOG.errorf(e, "Token exchange threw exception");
         }
         return Optional.empty();
     }
@@ -121,42 +113,6 @@ public class UserService {
             return payload.has("preferred_username") ? payload.get("preferred_username").asText() : null;
         } catch (Exception e) {
             return null;
-        }
-    }
-
-    public Optional<TokenDebugInfo> extractTokenDebugInfo(String accessToken) {
-        try {
-            String[] parts = accessToken.split("\\.");
-            if (parts.length < 2) {
-                return Optional.empty();
-            }
-
-            byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
-            JsonNode payload = MAPPER.readTree(decoded);
-
-            String issuer = payload.has("iss") ? payload.get("iss").asText() : null;
-            String audience = null;
-            if (payload.has("aud")) {
-                JsonNode aud = payload.get("aud");
-                if (aud.isTextual()) {
-                    audience = aud.asText();
-                } else if (aud.isArray()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < aud.size(); i++) {
-                        if (i > 0) sb.append(',');
-                        sb.append(aud.get(i).asText());
-                    }
-                    audience = sb.toString();
-                }
-            }
-
-            String authorizedParty = payload.has("azp") ? payload.get("azp").asText() : null;
-            String type = payload.has("typ") ? payload.get("typ").asText() : null;
-            Long exp = payload.has("exp") ? payload.get("exp").asLong() : null;
-
-            return Optional.of(new TokenDebugInfo(issuer, audience, authorizedParty, type, exp));
-        } catch (Exception e) {
-            return Optional.empty();
         }
     }
 

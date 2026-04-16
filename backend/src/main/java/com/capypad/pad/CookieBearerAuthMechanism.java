@@ -29,29 +29,18 @@ public class CookieBearerAuthMechanism implements HttpAuthenticationMechanism {
 
     @Override
     public Uni<SecurityIdentity> authenticate(RoutingContext context, IdentityProviderManager identityProviderManager) {
-        String path = context.request().path();
         io.vertx.core.http.Cookie cookie = context.request().getCookie(COOKIE_NAME);
         if (cookie == null) {
-            LOG.infof("[AUTH MECH] %s — no JWT cookie", path);
             return Uni.createFrom().nullItem();
         }
-        LOG.infof("[AUTH MECH] %s — JWT cookie found (%d chars), validating...", path, cookie.getValue().length());
 
         // OIDC identity provider needs the current RoutingContext on the auth request.
         // Without it, tenant resolution can fail and auth may end as a generic failure.
         TokenAuthenticationRequest authRequest = new TokenAuthenticationRequest(new AccessTokenCredential(cookie.getValue()));
         HttpSecurityUtils.setRoutingContextAttribute(authRequest, context);
 
-        return identityProviderManager.authenticate(
-                authRequest)
-                .onItem().invoke(identity -> {
-                    if (identity == null || identity.getPrincipal() == null) {
-                        LOG.warnf("[AUTH MECH] %s — auth returned null identity", path);
-                    } else {
-                        LOG.infof("[AUTH MECH] %s — auth OK, principal=%s", path, identity.getPrincipal().getName());
-                    }
-                })
-                .onFailure().invoke(err -> LOG.errorf(err, "[AUTH MECH] %s — auth FAILED: %s", path, err));
+        return identityProviderManager.authenticate(authRequest)
+                .onFailure().invoke(err -> LOG.errorf(err, "JWT cookie validation failed for %s", context.request().path()));
     }
 
     @Override

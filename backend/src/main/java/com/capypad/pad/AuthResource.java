@@ -107,87 +107,55 @@ public class AuthResource {
             @QueryParam("error_description") String errorDescription,
             @HeaderParam("Cookie") String cookieHeader) {
 
-        LOG.infof("[AUTH CALLBACK] code=%s, state=%s, error=%s, cookieHeader=%s",
-                code != null ? "present" : "null",
-                state != null ? "present" : "null",
-                error,
-                cookieHeader != null ? "present(" + cookieHeader.length() + " chars)" : "null");
-
-        // Handle Keycloak errors (e.g. user cancelled)
         if (error != null) {
-            LOG.warnf("[AUTH CALLBACK] Keycloak error: %s - %s", error, errorDescription);
+            LOG.warnf("Keycloak returned error: %s - %s", error, errorDescription);
             return redirectToFrontend(frontendUrl, "error", errorDescription != null ? errorDescription : error);
         }
 
         if (code == null || state == null) {
-            LOG.warn("[AUTH CALLBACK] Missing code or state");
             return redirectToFrontend(frontendUrl, "error", "Missing authorization code");
         }
 
-        // Parse PKCE cookie
         String pkceData = extractCookie(cookieHeader, PKCE_COOKIE_NAME);
         if (pkceData == null) {
-            LOG.warn("[AUTH CALLBACK] PKCE cookie not found in request");
             return redirectToFrontend(frontendUrl, "error", "Session expired, please try again");
         }
 
         String[] parts = pkceData.split("\\|", 3);
         if (parts.length < 3) {
-            LOG.warnf("[AUTH CALLBACK] Invalid PKCE data, parts=%d", parts.length);
             return redirectToFrontend(frontendUrl, "error", "Invalid session");
         }
 
         String codeVerifier = parts[0];
         String expectedState = parts[1];
         String redirectUrl = parts[2];
-        LOG.infof("[AUTH CALLBACK] PKCE parsed ok, redirectUrl=%s", redirectUrl);
 
-        // Validate state to prevent CSRF
         if (!state.equals(expectedState)) {
-            LOG.warn("[AUTH CALLBACK] State mismatch");
+            LOG.warn("OAuth state mismatch");
             return redirectToFrontend(frontendUrl, "error", "Invalid state");
         }
 
-        // Exchange code for token
-        LOG.info("[AUTH CALLBACK] Exchanging code for token...");
         Optional<UserService.TokenResponse> tokenResult = userService.exchangeCodeForToken(code, codeVerifier, callbackUrl);
         if (tokenResult.isEmpty()) {
-            LOG.warn("[AUTH CALLBACK] Token exchange FAILED");
             return redirectToFrontend(redirectUrl, "error", "Token exchange failed");
         }
-        LOG.info("[AUTH CALLBACK] Token exchange OK");
 
         UserService.TokenResponse tokenResponse = tokenResult.get();
-        userService.extractTokenDebugInfo(tokenResponse.accessToken()).ifPresentOrElse(
-            info -> LOG.infof("[AUTH CALLBACK] Token claims: iss=%s, aud=%s, azp=%s, typ=%s, exp=%s",
-                info.issuer(), info.audience(), info.authorizedParty(), info.type(), info.expiresAtEpoch()),
-            () -> LOG.warn("[AUTH CALLBACK] Could not parse token claims for debug")
-        );
 
-        // Extract username from the token (preferred_username claim)
         String username = userService.extractUsername(tokenResponse.accessToken());
         if (username == null) {
-            LOG.warn("[AUTH CALLBACK] Could not extract username from token");
             return redirectToFrontend(redirectUrl, "error", "Could not determine username");
         }
-        LOG.infof("[AUTH CALLBACK] Username: %s", username);
 
-        // Ensure local user record exists; check if approved
         User localUser = userService.ensureLocalUser(username);
-        LOG.infof("[AUTH CALLBACK] Local user: id=%d, approved=%s, role=%s", localUser.id, localUser.approved, localUser.role);
         if (!localUser.approved) {
-            LOG.warnf("[AUTH CALLBACK] User '%s' not approved, redirecting with pending", username);
             return redirectToFrontend(redirectUrl, "pending", null);
         }
 
-        // Users registered directly in Keycloak may miss realm role assignment.
-        // Ensure USER/ADMIN role exists so @RolesAllowed endpoints do not return 403.
         userService.ensureKeycloakUserRole(localUser.username, localUser.role);
 
-        // Set JWT + ID token cookies and clear PKCE cookie
         String jwtCookie = buildSetCookie(COOKIE_NAME, tokenResponse.accessToken());
         String clearPkce = buildClearCookie(PKCE_COOKIE_NAME, "/api/auth");
-        LOG.infof("[AUTH CALLBACK] SUCCESS — setting JWT cookie (%d chars), redirecting to %s", jwtCookie.length(), redirectUrl);
 
         Response.ResponseBuilder builder = Response.status(302)
                 .location(URI.create(redirectUrl))
@@ -208,12 +176,7 @@ public class AuthResource {
      */
     @GET
     @Path("/me")
-    public Response me(@jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext,
-                       @HeaderParam("Cookie") String cookieHeader) {
-        boolean hasCookie = cookieHeader != null && cookieHeader.contains(COOKIE_NAME + "=");
-        LOG.infof("[AUTH ME] cookie header present=%s, has jwt cookie=%s, principal=%s",
-                cookieHeader != null, hasCookie,
-                securityContext.getUserPrincipal() != null ? securityContext.getUserPrincipal().getName() : "null");
+    public Response me(@jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext) {
         if (securityContext.getUserPrincipal() == null) {
             return Response.status(Response.Status.UNAUTHORIZED)
                     .entity("{\"error\":\"not authenticated\"}")
