@@ -87,8 +87,8 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
   await Promise.all(
     images.map(async (img) => {
       const imageId = img.getAttribute("data-capypad-image-id")?.trim();
-        const endpointCandidates = imageId ? buildImageCandidates(imageId) : [];
-        const endpoint = endpointCandidates[0] ?? null;
+      const endpointCandidates = imageId ? buildImageCandidates(imageId) : [];
+      const endpoint = endpointCandidates[0] ?? null;
 
       const src = img.getAttribute("src");
       const shouldHydrateFromEndpoint = Boolean(
@@ -151,6 +151,61 @@ async function inlineContainerImages(container: HTMLElement): Promise<void> {
       });
     }),
   );
+}
+
+type VerticalRange = { top: number; bottom: number };
+
+function getImageRanges(container: HTMLElement, maxRangeHeightPx: number): VerticalRange[] {
+  const containerRect = container.getBoundingClientRect();
+  const contentHeight = Math.ceil(container.scrollHeight);
+  const ranges: VerticalRange[] = [];
+
+  for (const img of Array.from(container.querySelectorAll("img"))) {
+    const rect = img.getBoundingClientRect();
+    const top = Math.max(0, rect.top - containerRect.top);
+    const bottom = Math.min(contentHeight, rect.bottom - containerRect.top);
+    const height = bottom - top;
+    if (height <= 0) continue;
+    if (height > maxRangeHeightPx) continue;
+    ranges.push({ top, bottom });
+  }
+
+  ranges.sort((a, b) => a.top - b.top);
+  return ranges;
+}
+
+function getNextPageBreak(
+  offsetPx: number,
+  pageHeightPx: number,
+  contentHeightPx: number,
+  protectedRanges: VerticalRange[],
+): number {
+  let breakPx = Math.min(offsetPx + pageHeightPx, contentHeightPx);
+  if (breakPx >= contentHeightPx) return contentHeightPx;
+
+  const minSlicePx = Math.max(120, Math.round(pageHeightPx * 0.18));
+  for (let i = 0; i < 8; i++) {
+    let adjusted = false;
+    for (const range of protectedRanges) {
+      if (range.top < breakPx && range.bottom > breakPx) {
+        const breakBefore = Math.floor(range.top);
+        if (breakBefore - offsetPx >= minSlicePx) {
+          breakPx = breakBefore;
+          adjusted = true;
+        }
+        break;
+      }
+    }
+    if (!adjusted) break;
+  }
+
+  if (breakPx <= offsetPx) {
+    breakPx = Math.min(offsetPx + pageHeightPx, contentHeightPx);
+  }
+  if (breakPx <= offsetPx) {
+    breakPx = Math.min(offsetPx + 1, contentHeightPx);
+  }
+  return breakPx;
 }
 
 async function renderImages(text: string): Promise<string> {
@@ -282,11 +337,18 @@ export default function DownloadPdfButton({
       }
 
       const pageHeightPx = (pageHeightMm * contentWidthPx) / contentWidthMm;
+      const imageRanges = getImageRanges(container, pageHeightPx * 0.98);
       let offsetPx = 0;
       let pageIndex = 0;
 
       while (offsetPx < contentHeightPx - 0.5) {
-        const captureHeightPx = Math.min(pageHeightPx, contentHeightPx - offsetPx);
+        const nextBreakPx = getNextPageBreak(
+          offsetPx,
+          pageHeightPx,
+          contentHeightPx,
+          imageRanges,
+        );
+        const captureHeightPx = Math.max(1, nextBreakPx - offsetPx);
 
         const pageViewport = document.createElement("div");
         pageViewport.style.cssText =
@@ -325,7 +387,7 @@ export default function DownloadPdfButton({
           document.body.removeChild(pageViewport);
         }
 
-        offsetPx += captureHeightPx;
+        offsetPx = nextBreakPx;
         pageIndex += 1;
       }
     } finally {
