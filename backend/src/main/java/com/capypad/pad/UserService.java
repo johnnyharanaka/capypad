@@ -52,7 +52,7 @@ public class UserService {
     /**
      * Response from Keycloak token endpoint.
      */
-    public record TokenResponse(String accessToken, String refreshToken, int expiresIn) {}
+    public record TokenResponse(String accessToken, String refreshToken, String idToken, int expiresIn) {}
 
     /**
      * Minimal token claims useful for authentication diagnostics.
@@ -92,6 +92,7 @@ public class UserService {
                 return Optional.of(new TokenResponse(
                         json.get("access_token").asText(),
                         json.has("refresh_token") ? json.get("refresh_token").asText() : null,
+                        json.has("id_token") ? json.get("id_token").asText() : null,
                         json.has("expires_in") ? json.get("expires_in").asInt() : 300
                 ));
             } else {

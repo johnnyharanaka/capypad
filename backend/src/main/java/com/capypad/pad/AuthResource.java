@@ -22,6 +22,7 @@ public class AuthResource {
 
     private static final Logger LOG = Logger.getLogger(AuthResource.class);
     private static final String COOKIE_NAME = "capypad_jwt";
+    private static final String ID_TOKEN_COOKIE_NAME = "capypad_id_token";
     private static final String PKCE_COOKIE_NAME = "capypad_pkce";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -183,16 +184,21 @@ public class AuthResource {
         // Ensure USER/ADMIN role exists so @RolesAllowed endpoints do not return 403.
         userService.ensureKeycloakUserRole(localUser.username, localUser.role);
 
-        // Set JWT cookie and clear PKCE cookie
-        String jwtCookie = buildSetCookie(tokenResponse.accessToken());
+        // Set JWT + ID token cookies and clear PKCE cookie
+        String jwtCookie = buildSetCookie(COOKIE_NAME, tokenResponse.accessToken());
         String clearPkce = buildClearCookie(PKCE_COOKIE_NAME, "/api/auth");
         LOG.infof("[AUTH CALLBACK] SUCCESS — setting JWT cookie (%d chars), redirecting to %s", jwtCookie.length(), redirectUrl);
 
-        return Response.status(302)
+        Response.ResponseBuilder builder = Response.status(302)
                 .location(URI.create(redirectUrl))
                 .header("Set-Cookie", jwtCookie)
-                .header("Set-Cookie", clearPkce)
-                .build();
+                .header("Set-Cookie", clearPkce);
+
+        if (tokenResponse.idToken() != null) {
+            builder.header("Set-Cookie", buildSetCookie(ID_TOKEN_COOKIE_NAME, tokenResponse.idToken()));
+        }
+
+        return builder.build();
     }
 
     /**
@@ -231,21 +237,39 @@ public class AuthResource {
 
     /**
      * POST /api/auth/logout
-     * Clears the JWT cookie.
+     * Clears the JWT cookie and returns the Keycloak end-session URL
+     * so the frontend can redirect the browser and terminate the SSO session.
      */
     @POST
     @Path("/logout")
-    public Response logout() {
-        return Response.ok("{\"message\":\"Logged out\"}")
+    public Response logout(@QueryParam("redirect") String redirect,
+                           @HeaderParam("Cookie") String cookieHeader) {
+        String idToken = extractCookie(cookieHeader, ID_TOKEN_COOKIE_NAME);
+
+        String postLogoutRedirect = (redirect != null && redirect.startsWith(frontendUrl))
+                ? redirect
+                : frontendUrl;
+
+        StringBuilder logoutUrl = new StringBuilder()
+                .append(keycloakExternalUrl).append("/realms/capypad/protocol/openid-connect/logout")
+                .append("?client_id=").append(encode(clientId))
+                .append("&post_logout_redirect_uri=").append(encode(postLogoutRedirect));
+
+        if (idToken != null) {
+            logoutUrl.append("&id_token_hint=").append(encode(idToken));
+        }
+
+        return Response.ok("{\"url\":\"" + logoutUrl.toString().replace("\"", "\\\"") + "\"}")
                 .header("Set-Cookie", buildClearCookie(COOKIE_NAME))
+                .header("Set-Cookie", buildClearCookie(ID_TOKEN_COOKIE_NAME))
                 .build();
     }
 
     // ── Cookie helpers ──────────────────────────────────────────────
 
-    private String buildSetCookie(String token) {
+    private String buildSetCookie(String name, String token) {
         StringBuilder sb = new StringBuilder();
-        sb.append(COOKIE_NAME).append('=').append(token);
+        sb.append(name).append('=').append(token);
         sb.append("; Path=/; HttpOnly");
         sb.append("; SameSite=").append(cookieSameSite);
         sb.append("; Max-Age=").append(cookieMaxAge);

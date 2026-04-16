@@ -94,9 +94,20 @@ function useAuth() {
   }, []);
 
   const logout = useCallback(() => {
-    fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" })
-      .catch(() => {})
-      .finally(() => {
+    const redirect = encodeURIComponent(window.location.href);
+    fetch(`${API}/api/auth/logout?redirect=${redirect}`, {
+      method: "POST",
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        clearStoredUser();
+        setUser(null);
+        if (data?.url) {
+          window.location.href = data.url;
+        }
+      })
+      .catch(() => {
         clearStoredUser();
         setUser(null);
       });
