@@ -195,9 +195,10 @@ describe("DownloadPdfButton", () => {
       );
     });
 
-    const firstCallOptions = mocks.html2canvasMock.mock.calls[0]?.[1] as
-      | { width?: number }
+    const firstCall = mocks.html2canvasMock.mock.calls[0] as
+      | unknown[]
       | undefined;
+    const firstCallOptions = firstCall?.[1] as { width?: number } | undefined;
     expect(firstCallOptions?.width).toBe(860);
   });
 });
