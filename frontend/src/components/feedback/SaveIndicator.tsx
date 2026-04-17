@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckIcon, SpinnerIcon } from "@/components/icons";
+import { CheckIcon, SpinnerIcon, CloudCheckIcon } from "@/components/icons";
 
 export default function SaveIndicator({ saving }: { saving: boolean }) {
   const [prevSaving, setPrevSaving] = useState(saving);
@@ -31,5 +31,7 @@ export default function SaveIndicator({ saving }: { saving: boolean }) {
     );
   }
 
-  return null;
+  return (
+    <CloudCheckIcon className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+  );
 }

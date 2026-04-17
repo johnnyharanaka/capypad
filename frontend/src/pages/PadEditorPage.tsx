@@ -5,6 +5,7 @@ import CopyUrlButton from "@/components/actions/CopyUrlButton";
 import DownloadPdfButton from "@/components/actions/DownloadPdfButton";
 import ThemeToggle from "@/components/actions/ThemeToggle";
 import FloatingDock from "@/components/editor/FloatingDock";
+import DropOverlay from "@/components/feedback/DropOverlay";
 import SaveIndicator from "@/components/feedback/SaveIndicator";
 import { LockIcon, LoginIcon, LogoutIcon } from "@/components/icons";
 import Logo from "@/components/layout/Logo";
@@ -239,6 +240,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         )}
       </div>
       <FloatingDock editorView={editorView} />
+      {isAuthenticated && !uploadBlocked && <DropOverlay />}
     </div>
   );
 }
