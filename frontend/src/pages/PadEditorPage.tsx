@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EditorView } from "@codemirror/view";
-import { API } from "../api";
-import PadCodeEditor from "../editor/PadEditor";
-import CopyUrlButton from "../components/CopyUrlButton";
-import DownloadPdfButton from "../components/DownloadPdfButton";
-import FloatingDock from "../components/FloatingDock";
-import Logo from "../components/Logo";
-import SaveIndicator from "../components/SaveIndicator";
-import ThemeToggle from "../components/ThemeToggle";
-import { useAuth } from "../hooks/useAuth";
-import { useDarkMode } from "../hooks/useDarkMode";
+import { API } from "@/api";
+import CopyUrlButton from "@/components/actions/CopyUrlButton";
+import DownloadPdfButton from "@/components/actions/DownloadPdfButton";
+import ThemeToggle from "@/components/actions/ThemeToggle";
+import FloatingDock from "@/components/editor/FloatingDock";
+import SaveIndicator from "@/components/feedback/SaveIndicator";
+import { LockIcon, LoginIcon, LogoutIcon } from "@/components/icons";
+import Logo from "@/components/layout/Logo";
+import PadCodeEditor from "@/editor/PadEditor";
+import { useAuth } from "@/hooks/useAuth";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 function useWordCount(content: string | null) {
   if (!content) return { words: 0, chars: 0 };
@@ -175,23 +176,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
                 aria-label="Logout"
                 title="Logout"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z"
-                    clipRule="evenodd"
-                  />
-                  <path
-                    fillRule="evenodd"
-                    d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <LogoutIcon className="w-4 h-4" />
               </button>
             </div>
           ) : (
@@ -200,23 +185,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
               className="flex items-center gap-1 text-[11px] text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors px-1.5 py-1 rounded-md hover:bg-stone-200 dark:hover:bg-stone-700"
               title="Login to edit"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="w-4 h-4"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M17 4.25A2.25 2.25 0 0014.75 2h-5.5A2.25 2.25 0 007 4.25v2a.75.75 0 001.5 0v-2a.75.75 0 01.75-.75h5.5a.75.75 0 01.75.75v11.5a.75.75 0 01-.75.75h-5.5a.75.75 0 01-.75-.75v-2a.75.75 0 00-1.5 0v2A2.25 2.25 0 009.25 18h5.5A2.25 2.25 0 0017 15.75V4.25z"
-                  clipRule="evenodd"
-                />
-                <path
-                  fillRule="evenodd"
-                  d="M1 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H1.75A.75.75 0 011 10z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <LoginIcon className="w-4 h-4" />
               <span className="hidden sm:inline">Login to edit</span>
             </button>
           )}
@@ -228,18 +197,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       </header>
       {!loading && !isAuthenticated && !authMsg && (
         <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-sky-50/70 dark:bg-sky-900/20 text-sky-800 dark:text-sky-200 flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="w-3.5 h-3.5 shrink-0"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <LockIcon className="w-3.5 h-3.5 shrink-0" />
           <span>
             Modo leitura.{" "}
             <button

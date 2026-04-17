@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API } from "../api";
-import Logo from "../components/Logo";
-import ThemeToggle from "../components/ThemeToggle";
-import { useAuth } from "../hooks/useAuth";
-import { useDarkMode } from "../hooks/useDarkMode";
+import { API } from "@/api";
+import ThemeToggle from "@/components/actions/ThemeToggle";
+import { SpinnerIcon } from "@/components/icons";
+import Logo from "@/components/layout/Logo";
+import { useAuth } from "@/hooks/useAuth";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 type Tab = "users" | "pads" | "settings";
 type SiteSettings = {
@@ -151,27 +152,21 @@ export default function AdminPage() {
   }, [authMsg]);
 
   // ── Fetch helpers ──
-  const fetchPending = useCallback(
-    async (page = 0, signal?: AbortSignal) => {
-      const res = await fetch(
-        `${API}/api/admin/users?approved=false&page=${page}&size=${PAGE_SIZE}`,
-        { credentials: "include", signal },
-      );
-      if (res.ok) setPendingData(await res.json());
-    },
-    [],
-  );
+  const fetchPending = useCallback(async (page = 0, signal?: AbortSignal) => {
+    const res = await fetch(
+      `${API}/api/admin/users?approved=false&page=${page}&size=${PAGE_SIZE}`,
+      { credentials: "include", signal },
+    );
+    if (res.ok) setPendingData(await res.json());
+  }, []);
 
-  const fetchApproved = useCallback(
-    async (page = 0, signal?: AbortSignal) => {
-      const res = await fetch(
-        `${API}/api/admin/users?approved=true&page=${page}&size=${PAGE_SIZE}`,
-        { credentials: "include", signal },
-      );
-      if (res.ok) setApprovedData(await res.json());
-    },
-    [],
-  );
+  const fetchApproved = useCallback(async (page = 0, signal?: AbortSignal) => {
+    const res = await fetch(
+      `${API}/api/admin/users?approved=true&page=${page}&size=${PAGE_SIZE}`,
+      { credentials: "include", signal },
+    );
+    if (res.ok) setApprovedData(await res.json());
+  }, []);
 
   const saveSettings = async (updated: SiteSettings) => {
     setSettingsLoading(true);
@@ -207,24 +202,32 @@ export default function AdminPage() {
     const controller = new AbortController();
     const signal = controller.signal;
     (async () => {
-      const [pendingRes, approvedRes, padsRes, settingsRes] = await Promise.all([
-        fetch(`${API}/api/admin/users?approved=false&page=0&size=${PAGE_SIZE}`, {
-          credentials: "include",
-          signal,
-        }),
-        fetch(`${API}/api/admin/users?approved=true&page=0&size=${PAGE_SIZE}`, {
-          credentials: "include",
-          signal,
-        }),
-        fetch(`${API}/api/admin/pads?page=0&size=${PAGE_SIZE}`, {
-          credentials: "include",
-          signal,
-        }),
-        fetch(`${API}/api/admin/settings`, {
-          credentials: "include",
-          signal,
-        }),
-      ]);
+      const [pendingRes, approvedRes, padsRes, settingsRes] = await Promise.all(
+        [
+          fetch(
+            `${API}/api/admin/users?approved=false&page=0&size=${PAGE_SIZE}`,
+            {
+              credentials: "include",
+              signal,
+            },
+          ),
+          fetch(
+            `${API}/api/admin/users?approved=true&page=0&size=${PAGE_SIZE}`,
+            {
+              credentials: "include",
+              signal,
+            },
+          ),
+          fetch(`${API}/api/admin/pads?page=0&size=${PAGE_SIZE}`, {
+            credentials: "include",
+            signal,
+          }),
+          fetch(`${API}/api/admin/settings`, {
+            credentials: "include",
+            signal,
+          }),
+        ],
+      );
       if (signal.aborted) return;
       if (pendingRes.ok) setPendingData(await pendingRes.json());
       if (approvedRes.ok) setApprovedData(await approvedRes.json());
@@ -480,32 +483,16 @@ export default function AdminPage() {
             </div>
           ) : authLoading ? (
             <div className="flex justify-center py-16">
-              <svg
-                className="w-6 h-6 animate-spin text-stone-400"
-                viewBox="0 0 16 16"
-                fill="none"
-              >
-                <circle
-                  cx="8"
-                  cy="8"
-                  r="6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  opacity="0.3"
-                />
-                <path
-                  d="M14 8a6 6 0 00-6-6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <SpinnerIcon className="w-6 h-6 animate-spin text-stone-400" />
             </div>
           ) : (
             <>
               {/* Tabs */}
               <div className="flex gap-2 mb-6">
-                <button className={tabClass("users")} onClick={() => setTab("users")}>
+                <button
+                  className={tabClass("users")}
+                  onClick={() => setTab("users")}
+                >
                   Usuários
                   {pendingData.total > 0 && (
                     <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-amber-500 text-white">
@@ -513,10 +500,16 @@ export default function AdminPage() {
                     </span>
                   )}
                 </button>
-                <button className={tabClass("pads")} onClick={() => setTab("pads")}>
+                <button
+                  className={tabClass("pads")}
+                  onClick={() => setTab("pads")}
+                >
                   Pads
                 </button>
-                <button className={tabClass("settings")} onClick={() => setTab("settings")}>
+                <button
+                  className={tabClass("settings")}
+                  onClick={() => setTab("settings")}
+                >
                   Settings
                 </button>
               </div>
@@ -548,9 +541,7 @@ export default function AdminPage() {
                       <p className="text-xs text-stone-400">
                         A senha será gerada automaticamente.
                       </p>
-                      {error && (
-                        <p className="text-xs text-red-500">{error}</p>
-                      )}
+                      {error && <p className="text-xs text-red-500">{error}</p>}
                       <div className="flex gap-2">
                         <button
                           onClick={createUser}
@@ -690,15 +681,22 @@ export default function AdminPage() {
                           Modo de manutenção
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Quando ativo, bloqueia edição de pads e upload de arquivos.
+                          Quando ativo, bloqueia edição de pads e upload de
+                          arquivos.
                         </span>
                       </div>
                       <button
                         onClick={() => {
                           if (settings.maintenanceMode) {
-                            setConfirmToggle({ field: "maintenanceMode", label: "modo de manutenção" });
+                            setConfirmToggle({
+                              field: "maintenanceMode",
+                              label: "modo de manutenção",
+                            });
                           } else {
-                            const updated = { ...settings, maintenanceMode: true };
+                            const updated = {
+                              ...settings,
+                              maintenanceMode: true,
+                            };
                             setSettings(updated);
                             saveSettings(updated);
                           }
@@ -719,13 +717,16 @@ export default function AdminPage() {
                           Bloquear arquivos
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Impede upload de imagens nos pads.
+                          Impede upload de arquivos nos pads.
                         </span>
                       </div>
                       <button
                         onClick={() => {
                           if (settings.blockFiles) {
-                            setConfirmToggle({ field: "blockFiles", label: "bloqueio de arquivos" });
+                            setConfirmToggle({
+                              field: "blockFiles",
+                              label: "bloqueio de arquivos",
+                            });
                           } else {
                             const updated = { ...settings, blockFiles: true };
                             setSettings(updated);
@@ -758,16 +759,23 @@ export default function AdminPage() {
                           value={settingsDaysInput}
                           onChange={(e) => setSettingsDaysInput(e.target.value)}
                           onBlur={() => {
-                            const days = Math.max(1, parseInt(settingsDaysInput) || 30);
+                            const days = Math.max(
+                              1,
+                              parseInt(settingsDaysInput) || 30,
+                            );
                             setSettingsDaysInput(String(days));
                             if (days !== settings.cleanupMaxAgeDays) {
-                              const updated = { ...settings, cleanupMaxAgeDays: days };
+                              const updated = {
+                                ...settings,
+                                cleanupMaxAgeDays: days,
+                              };
                               setSettings(updated);
                               saveSettings(updated);
                             }
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                            if (e.key === "Enter")
+                              (e.target as HTMLInputElement).blur();
                           }}
                           className="w-24 border border-stone-200 dark:border-stone-600 rounded-lg pl-3 pr-1 py-1.5 text-sm bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 text-right focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 [&::-webkit-inner-spin-button]:ml-2 [&::-webkit-inner-spin-button]:opacity-100"
                         />
@@ -786,8 +794,8 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold">Pads</h2>
                     <span className="text-sm text-stone-400 dark:text-stone-500">
-                      {padsData.total}{" "}
-                      {padsData.total === 1 ? "pad" : "pads"} com conteúdo
+                      {padsData.total} {padsData.total === 1 ? "pad" : "pads"}{" "}
+                      com conteúdo
                     </span>
                   </div>
 

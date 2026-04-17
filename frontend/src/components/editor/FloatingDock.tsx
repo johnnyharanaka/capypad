@@ -11,13 +11,13 @@ import {
   toggleBlockquote,
   setHeading,
   setAlignment,
-} from "../editor/formatting";
+} from "@/editor/formatting";
 import {
   AlignCenterIcon,
   AlignJustifyIcon,
   AlignLeftIcon,
   AlignRightIcon,
-} from "./icons/EditorIcons";
+} from "@/components/icons";
 
 type GroupId = "text" | "heading" | "list" | "align";
 

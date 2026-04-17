@@ -1,4 +1,4 @@
-import { MoonIcon, SunIcon } from "./icons/ThemeIcons";
+import { MoonIcon, SunIcon } from "@/components/icons";
 
 export default function ThemeToggle({
   dark,

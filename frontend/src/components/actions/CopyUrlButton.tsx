@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { CheckIcon, LinkIcon } from "./icons/ActionIcons";
+import { CheckIcon, LinkIcon } from "@/components/icons";
 
 export default function CopyUrlButton() {
   const [copied, setCopied] = useState(false);

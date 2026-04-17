@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import Background from "../components/Background";
-import Logo from "../components/Logo";
-import ThemeToggle from "../components/ThemeToggle";
-import { useDarkMode } from "../hooks/useDarkMode";
+import ThemeToggle from "@/components/actions/ThemeToggle";
+import Background from "@/components/layout/Background";
+import Logo from "@/components/layout/Logo";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 function useTypewriter(
   words: string[],

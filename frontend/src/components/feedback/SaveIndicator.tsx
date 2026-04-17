@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckIcon } from "./icons/ActionIcons";
-import { SpinnerIcon } from "./icons/StatusIcons";
+import { CheckIcon, SpinnerIcon } from "@/components/icons";
 
 export default function SaveIndicator({ saving }: { saving: boolean }) {
   const [prevSaving, setPrevSaving] = useState(saving);

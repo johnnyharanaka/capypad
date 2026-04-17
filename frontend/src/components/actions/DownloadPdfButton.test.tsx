@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import DownloadPdfButton from "./DownloadPdfButton";
+import DownloadPdfButton from "@/components/actions/DownloadPdfButton";
 
 const mocks = vi.hoisted(() => {
   const markedParseMock = vi.fn(async (input: string) => input);

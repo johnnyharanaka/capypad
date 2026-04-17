@@ -4,8 +4,8 @@ import { jsPDF } from "jspdf";
 import { marked } from "marked";
 import katex from "katex";
 import html2canvas from "html2canvas-pro";
-import { API } from "../api";
-import { DownloadIcon } from "./icons/ActionIcons";
+import { API } from "@/api";
+import { DownloadIcon } from "@/components/icons";
 
 const imageDataUrlCache = new Map<string, string>();
 
