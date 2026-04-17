@@ -16,7 +16,11 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Path("/api/admin")
 @Produces(MediaType.APPLICATION_JSON)
@@ -29,6 +33,9 @@ public class AdminResource {
 
     @Inject
     SiteSettingsService siteSettingsService;
+
+    @Inject
+    ImageStorageService imageStorageService;
 
     @GET
     @Path("/pads")
@@ -70,7 +77,11 @@ public class AdminResource {
         if (pad == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        PadImage.deleteByPadPath(pad.path);
+        List<PadImage> images = PadImage.findByPadPath(pad.path);
+        for (PadImage img : images) {
+            imageStorageService.deleteForRecord(img);
+            img.delete();
+        }
         pad.delete();
         return Response.noContent().build();
     }
@@ -111,6 +122,42 @@ public class AdminResource {
         userService.deleteUser(id, sc.getUserPrincipal().getName());
         return Response.noContent().build();
     }
+
+    @POST
+    @Path("/cleanup-orphan-files")
+    @Transactional
+    public Response cleanupOrphanFiles() {
+        Set<String> knownHashes = new HashSet<>();
+        List<PadImage> allRecords = PadImage.listAll();
+        for (PadImage img : allRecords) {
+            if (img.contentHash != null) {
+                knownHashes.add(img.contentHash);
+            }
+        }
+
+        java.nio.file.Path dir = java.nio.file.Path.of(imageStorageService.storageDir);
+        int deleted = 0;
+        long freedBytes = 0;
+        if (java.nio.file.Files.exists(dir)) {
+            try (var stream = java.nio.file.Files.list(dir)) {
+                List<java.nio.file.Path> files = stream.filter(java.nio.file.Files::isRegularFile).toList();
+                for (java.nio.file.Path file : files) {
+                    String name = file.getFileName().toString();
+                    if (!knownHashes.contains(name)) {
+                        freedBytes += java.nio.file.Files.size(file);
+                        java.nio.file.Files.delete(file);
+                        deleted++;
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        return Response.ok(new OrphanCleanupResult(deleted, freedBytes)).build();
+    }
+
+    public record OrphanCleanupResult(int deletedFiles, long freedBytes) {}
 
     @GET
     @Path("/settings")

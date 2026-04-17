@@ -126,6 +126,11 @@ export default function AdminPage() {
     field: "maintenanceMode" | "blockFiles";
     label: string;
   } | null>(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<{
+    deletedFiles: number;
+    freedBytes: number;
+  } | null>(null);
 
   // ── Auth message ──
   const [authMsg, setAuthMsg] = useState<string | null>(() => {
@@ -320,11 +325,35 @@ export default function AdminPage() {
     fetchPads(padsData.page, padSearch);
   };
 
+  // ── Cleanup orphan files ──
+  const cleanupOrphanFiles = async () => {
+    if (!confirm("Isso vai apagar arquivos de imagem no disco que não estão mais referenciados no banco. Continuar?")) return;
+    setCleanupLoading(true);
+    setCleanupResult(null);
+    try {
+      const res = await fetch(`${API}/api/admin/cleanup-orphan-files`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setCleanupResult(await res.json());
+      }
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   // ── Formatters ──
   const formatSize = (chars: number) => {
     if (chars < 1000) return `${chars} chars`;
     if (chars < 1_000_000) return `${(chars / 1000).toFixed(1)}k chars`;
     return `${(chars / 1_000_000).toFixed(1)}M chars`;
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const formatDate = (iso: string) => {
@@ -783,6 +812,32 @@ export default function AdminPage() {
                           dias
                         </span>
                       </div>
+                    </div>
+
+                    {/* Cleanup Orphan Files */}
+                    <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          Limpar arquivos órfãos
+                        </span>
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          Remove imagens no disco sem referência no banco de dados.
+                        </span>
+                        {cleanupResult && (
+                          <span className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            {cleanupResult.deletedFiles === 0
+                              ? "Nenhum arquivo órfão encontrado."
+                              : `${cleanupResult.deletedFiles} ${cleanupResult.deletedFiles === 1 ? "arquivo removido" : "arquivos removidos"} (${formatBytes(cleanupResult.freedBytes)} liberados)`}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={cleanupOrphanFiles}
+                        disabled={cleanupLoading}
+                        className="text-sm bg-red-600 text-white rounded-lg px-4 py-2 hover:bg-red-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {cleanupLoading ? "Limpando..." : "Limpar"}
+                      </button>
                     </div>
                   </div>
                 </>
