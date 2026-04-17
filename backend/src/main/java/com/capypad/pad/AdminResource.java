@@ -4,6 +4,7 @@ import com.capypad.pad.dto.AdminCreateUserRequest;
 import com.capypad.pad.dto.AdminCreateUserResponse;
 import com.capypad.pad.dto.PadPage;
 import com.capypad.pad.dto.PadSummary;
+import com.capypad.pad.dto.SiteSettingsDto;
 import com.capypad.pad.dto.UserPage;
 import com.capypad.pad.dto.UserSummary;
 import jakarta.annotation.security.RolesAllowed;
@@ -25,6 +26,9 @@ public class AdminResource {
 
     @Inject
     UserService userService;
+
+    @Inject
+    SiteSettingsService siteSettingsService;
 
     @GET
     @Path("/pads")
@@ -106,5 +110,19 @@ public class AdminResource {
     public Response deleteUser(@PathParam("id") Long id, @Context SecurityContext sc) {
         userService.deleteUser(id, sc.getUserPrincipal().getName());
         return Response.noContent().build();
+    }
+
+    @GET
+    @Path("/settings")
+    public SiteSettingsDto getSettings() {
+        SiteSettings s = siteSettingsService.get();
+        return new SiteSettingsDto(s.maintenanceMode, s.blockFiles, s.cleanupMaxAgeDays);
+    }
+
+    @PUT
+    @Path("/settings")
+    public SiteSettingsDto updateSettings(SiteSettingsDto dto) {
+        SiteSettings s = siteSettingsService.update(dto.maintenanceMode(), dto.blockFiles(), dto.cleanupMaxAgeDays());
+        return new SiteSettingsDto(s.maintenanceMode, s.blockFiles, s.cleanupMaxAgeDays);
     }
 }

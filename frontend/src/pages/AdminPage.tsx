@@ -5,7 +5,12 @@ import ThemeToggle from "../components/ThemeToggle";
 import { useAuth } from "../hooks/useAuth";
 import { useDarkMode } from "../hooks/useDarkMode";
 
-type Tab = "users" | "pads";
+type Tab = "users" | "pads" | "settings";
+type SiteSettings = {
+  maintenanceMode: boolean;
+  blockFiles: boolean;
+  cleanupMaxAgeDays: number;
+};
 type UserItem = {
   id: number;
   username: string;
@@ -107,6 +112,20 @@ export default function AdminPage() {
   const [padSearch, setPadSearch] = useState("");
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // ── Settings state ──
+  const [settings, setSettings] = useState<SiteSettings>({
+    maintenanceMode: false,
+    blockFiles: false,
+    cleanupMaxAgeDays: 30,
+  });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsDaysInput, setSettingsDaysInput] = useState("30");
+  const [confirmToggle, setConfirmToggle] = useState<{
+    field: "maintenanceMode" | "blockFiles";
+    label: string;
+  } | null>(null);
+
   // ── Auth message ──
   const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -154,6 +173,24 @@ export default function AdminPage() {
     [],
   );
 
+  const saveSettings = async (updated: SiteSettings) => {
+    setSettingsLoading(true);
+    const res = await fetch(`${API}/api/admin/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(updated),
+    });
+    setSettingsLoading(false);
+    if (res.ok) {
+      const data: SiteSettings = await res.json();
+      setSettings(data);
+      setSettingsDaysInput(String(data.cleanupMaxAgeDays));
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 2000);
+    }
+  };
+
   const fetchPads = useCallback(
     async (page = 0, search = padSearch, signal?: AbortSignal) => {
       const q = search.trim();
@@ -170,7 +207,7 @@ export default function AdminPage() {
     const controller = new AbortController();
     const signal = controller.signal;
     (async () => {
-      const [pendingRes, approvedRes, padsRes] = await Promise.all([
+      const [pendingRes, approvedRes, padsRes, settingsRes] = await Promise.all([
         fetch(`${API}/api/admin/users?approved=false&page=0&size=${PAGE_SIZE}`, {
           credentials: "include",
           signal,
@@ -183,11 +220,20 @@ export default function AdminPage() {
           credentials: "include",
           signal,
         }),
+        fetch(`${API}/api/admin/settings`, {
+          credentials: "include",
+          signal,
+        }),
       ]);
       if (signal.aborted) return;
       if (pendingRes.ok) setPendingData(await pendingRes.json());
       if (approvedRes.ok) setApprovedData(await approvedRes.json());
       if (padsRes.ok) setPadsData(await padsRes.json());
+      if (settingsRes.ok) {
+        const s: SiteSettings = await settingsRes.json();
+        setSettings(s);
+        setSettingsDaysInput(String(s.cleanupMaxAgeDays));
+      }
     })().catch(() => {});
     return () => controller.abort();
   }, [isAuthenticated, isAdmin]);
@@ -299,6 +345,47 @@ export default function AdminPage() {
 
   return (
     <>
+      {confirmToggle && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) =>
+            e.target === e.currentTarget && setConfirmToggle(null)
+          }
+        >
+          <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
+            <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
+              Desativar {confirmToggle.label}?
+            </h2>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Tem certeza que deseja desativar{" "}
+              <span className="font-medium text-stone-700 dark:text-stone-200">
+                {confirmToggle.label}
+              </span>
+              ? A alteração terá efeito imediato.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const updated = { ...settings, [confirmToggle.field]: false };
+                  setSettings(updated);
+                  saveSettings(updated);
+                  setConfirmToggle(null);
+                }}
+                className="flex-1 bg-red-600 text-white rounded-lg py-2 text-sm hover:bg-red-700 transition-colors"
+              >
+                Desativar
+              </button>
+              <button
+                onClick={() => setConfirmToggle(null)}
+                className="flex-1 bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 rounded-lg py-2 text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {generatedPassword && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -428,6 +515,9 @@ export default function AdminPage() {
                 </button>
                 <button className={tabClass("pads")} onClick={() => setTab("pads")}>
                   Pads
+                </button>
+                <button className={tabClass("settings")} onClick={() => setTab("settings")}>
+                  Settings
                 </button>
               </div>
 
@@ -577,6 +667,116 @@ export default function AdminPage() {
                     totalPages={approvedData.totalPages}
                     onPage={(p) => fetchApproved(p)}
                   />
+                </>
+              )}
+
+              {/* ════════ Settings Tab ════════ */}
+              {tab === "settings" && (
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-semibold">Settings</h2>
+                    {settingsSaved && (
+                      <span className="text-sm text-green-600 dark:text-green-400">
+                        Salvo!
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    {/* Maintenance Mode */}
+                    <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          Modo de manutenção
+                        </span>
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          Quando ativo, bloqueia edição de pads e upload de arquivos.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (settings.maintenanceMode) {
+                            setConfirmToggle({ field: "maintenanceMode", label: "modo de manutenção" });
+                          } else {
+                            const updated = { ...settings, maintenanceMode: true };
+                            setSettings(updated);
+                            saveSettings(updated);
+                          }
+                        }}
+                        disabled={settingsLoading}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${settings.maintenanceMode ? "bg-amber-500" : "bg-stone-300 dark:bg-stone-600"}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.maintenanceMode ? "translate-x-5" : ""}`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Block Files */}
+                    <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          Bloquear arquivos
+                        </span>
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          Impede upload de imagens nos pads.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (settings.blockFiles) {
+                            setConfirmToggle({ field: "blockFiles", label: "bloqueio de arquivos" });
+                          } else {
+                            const updated = { ...settings, blockFiles: true };
+                            setSettings(updated);
+                            saveSettings(updated);
+                          }
+                        }}
+                        disabled={settingsLoading}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${settings.blockFiles ? "bg-amber-500" : "bg-stone-300 dark:bg-stone-600"}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.blockFiles ? "translate-x-5" : ""}`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Cleanup Max Age Days */}
+                    <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          Dias para apagar pads inativos
+                        </span>
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          Pads sem edição serão removidos após esse período.
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          value={settingsDaysInput}
+                          onChange={(e) => setSettingsDaysInput(e.target.value)}
+                          onBlur={() => {
+                            const days = Math.max(1, parseInt(settingsDaysInput) || 30);
+                            setSettingsDaysInput(String(days));
+                            if (days !== settings.cleanupMaxAgeDays) {
+                              const updated = { ...settings, cleanupMaxAgeDays: days };
+                              setSettings(updated);
+                              saveSettings(updated);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                          }}
+                          className="w-24 border border-stone-200 dark:border-stone-600 rounded-lg pl-3 pr-1 py-1.5 text-sm bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 text-right focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 [&::-webkit-inner-spin-button]:ml-2 [&::-webkit-inner-spin-button]:opacity-100"
+                        />
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          dias
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
 

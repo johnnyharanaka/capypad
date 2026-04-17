@@ -32,6 +32,12 @@ public class PadResource {
     @ConfigProperty(name = "capypad.pad.max-content-bytes", defaultValue = "262144")
     int maxContentBytes;
 
+    @ConfigProperty(name = "capypad.image.max-count-per-pad", defaultValue = "20")
+    long maxImagesPerPad;
+
+    @ConfigProperty(name = "capypad.image.max-total-bytes-per-pad", defaultValue = "52428800")
+    long maxBytesPerPad;
+
     @Inject
     ImageStorageService storage;
 
@@ -40,6 +46,9 @@ public class PadResource {
 
     @Inject
     PadCreationLimiter padCreationLimiter;
+
+    @Inject
+    SiteSettingsService siteSettingsService;
 
     /** Only letters, digits, dots, hyphens and underscores — max 100 chars. */
     private static final Pattern VALID_PATH = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,99}$");
@@ -71,6 +80,13 @@ public class PadResource {
             @Context HttpHeaders headers) {
         String normalized = path.toLowerCase();
         validatePath(normalized);
+
+        SiteSettings settings = siteSettingsService.get();
+        if (settings.maintenanceMode) {
+            return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity("O site está em modo de manutenção. Edições estão desabilitadas.")
+                    .build();
+        }
 
         String content = dto != null && dto.content() != null ? dto.content() : "";
         int contentBytes = content.getBytes(StandardCharsets.UTF_8).length;
@@ -116,16 +132,31 @@ public class PadResource {
     }
 
     private PadDto toPadDto(String normalized, String content) {
+        SiteSettings settings = siteSettingsService.get();
+        boolean filesBlocked = settings.blockFiles;
+
+        // When blockFiles is active, still return real limits so the frontend
+        // can restore correctly when the setting is toggled off.
+        long imageCount = PadImage.countByPadPath(normalized);
+        long totalBytes = PadImage.totalSizeByPadPath(normalized);
+
+        if (filesBlocked) {
+            return new PadDto(
+                    normalized, content,
+                    imageCount, maxImagesPerPad,
+                    totalBytes, maxBytesPerPad,
+                    true, "Upload de arquivos está desabilitado.",
+                    settings.maintenanceMode, true
+            );
+        }
+
         UploadLimitStatus limits = uploadLimitService.currentStatus(normalized);
         return new PadDto(
-                normalized,
-                content,
-                limits.imageCount(),
-                limits.imageCountLimit(),
-                limits.totalImageBytes(),
-                limits.totalImageBytesLimit(),
-                limits.uploadBlocked(),
-                limits.uploadBlockReason()
+                normalized, content,
+                limits.imageCount(), limits.imageCountLimit(),
+                limits.totalImageBytes(), limits.totalImageBytesLimit(),
+                limits.uploadBlocked(), limits.uploadBlockReason(),
+                settings.maintenanceMode, false
         );
     }
 

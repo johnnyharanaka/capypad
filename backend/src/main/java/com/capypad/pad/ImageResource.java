@@ -51,6 +51,9 @@ public class ImageResource {
     @Inject
     UploadLimitService uploadLimitService;
 
+    @Inject
+    SiteSettingsService siteSettingsService;
+
     @POST
     @Path("/{padPath}/images")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -58,6 +61,16 @@ public class ImageResource {
     @Transactional
     @RolesAllowed({"USER", "ADMIN"})
     public Response upload(@PathParam("padPath") String padPath, @RestForm("file") FileUpload file) throws IOException {
+        SiteSettings settings = siteSettingsService.get();
+        if (settings.blockFiles) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Upload de arquivos está desabilitado.").build();
+        }
+        if (settings.maintenanceMode) {
+            return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                    .entity("O site está em modo de manutenção.").build();
+        }
+
         String normalizedPad = padPath.toLowerCase();
         if (!VALID_PAD_PATH.matcher(normalizedPad).matches() || normalizedPad.contains("..")) {
             return Response.status(400).entity("Invalid pad path").build();

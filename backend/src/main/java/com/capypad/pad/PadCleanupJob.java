@@ -4,7 +4,6 @@ import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
@@ -16,8 +15,8 @@ public class PadCleanupJob {
 
     private static final Logger LOG = Logger.getLogger(PadCleanupJob.class);
 
-    @ConfigProperty(name = "capypad.cleanup.max-age-days", defaultValue = "30")
-    int maxAgeDays;
+    @Inject
+    SiteSettingsService siteSettingsService;
 
     @Inject
     ImageStorageService storage;
@@ -25,6 +24,7 @@ public class PadCleanupJob {
     @Scheduled(every = "${capypad.cleanup.interval:24h}")
     @Transactional
     void cleanup() {
+        int maxAgeDays = siteSettingsService.get().cleanupMaxAgeDays;
         Instant cutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
         List<Pad> expired = Pad.list("updatedAt < ?1", cutoff);
 

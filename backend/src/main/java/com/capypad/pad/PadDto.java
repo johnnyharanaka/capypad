@@ -8,6 +8,8 @@ public record PadDto(
 	long totalImageBytes,
 	long totalImageBytesLimit,
 	boolean uploadBlocked,
-	String uploadBlockReason
+	String uploadBlockReason,
+	boolean maintenanceMode,
+	boolean blockFiles
 ) {
 }
