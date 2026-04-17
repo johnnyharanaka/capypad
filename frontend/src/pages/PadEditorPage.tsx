@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { API } from "@/api";
 import CopyUrlButton from "@/components/actions/CopyUrlButton";
@@ -41,6 +41,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const { isAuthenticated, isAdmin, username, login, logout, loading } =
     useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
@@ -101,6 +102,14 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
   const onUploadError = useCallback((message: string) => {
     setUploadError(message);
     setTimeout(() => setUploadError(null), 4000);
+  }, []);
+
+  const lastModalTime = useRef(0);
+  const handleReadOnlyInput = useCallback(() => {
+    const now = Date.now();
+    if (now - lastModalTime.current < 500) return;
+    lastModalTime.current = now;
+    setShowLoginModal(true);
   }, []);
 
   useEffect(() => {
@@ -236,11 +245,43 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
             onUploadLimitsUpdate={applyUploadLimits}
             onUploadError={onUploadError}
             onEditorReady={setEditorView}
+            onReadOnlyInput={handleReadOnlyInput}
           />
         )}
       </div>
       <FloatingDock editorView={editorView} />
       {isAuthenticated && !uploadBlocked && <DropOverlay />}
+      {showLoginModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowLoginModal(false);
+          }}
+        >
+          <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
+            <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
+              Login necessário
+            </h2>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
+              Faça login para editar este pad.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={login}
+                className="flex-1 bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm hover:opacity-80 transition-opacity"
+              >
+                Fazer login
+              </button>
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="flex-1 bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 rounded-lg py-2 text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

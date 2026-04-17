@@ -96,6 +96,7 @@ interface Props {
   }) => void;
   onUploadError: (message: string) => void;
   onEditorReady?: (view: EditorView) => void;
+  onReadOnlyInput?: () => void;
 }
 
 export default function PadCodeEditor({
@@ -109,6 +110,7 @@ export default function PadCodeEditor({
   onUploadLimitsUpdate,
   onUploadError,
   onEditorReady,
+  onReadOnlyInput,
 }: Props) {
   const extensions = useMemo(
     () => {
@@ -353,6 +355,22 @@ export default function PadCodeEditor({
           }
         },
       ),
+      ...(readOnly && onReadOnlyInput
+        ? [
+            EditorView.domEventHandlers({
+              keydown(event) {
+                if (
+                  event.key.length === 1 &&
+                  !event.ctrlKey &&
+                  !event.metaKey &&
+                  !event.altKey
+                ) {
+                  onReadOnlyInput();
+                }
+              },
+            }),
+          ]
+        : []),
     ];},
     [
       padPath,
@@ -361,6 +379,7 @@ export default function PadCodeEditor({
       uploadBlockReason,
       onUploadLimitsUpdate,
       onUploadError,
+      onReadOnlyInput,
     ],
   );
 
