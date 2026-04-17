@@ -1,9 +1,65 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API } from "../api";
 import Logo from "../components/Logo";
 import ThemeToggle from "../components/ThemeToggle";
 import { useAuth } from "../hooks/useAuth";
 import { useDarkMode } from "../hooks/useDarkMode";
+
+type Tab = "users" | "pads";
+type UserItem = {
+  id: number;
+  username: string;
+  role: string;
+  approved: boolean;
+};
+type PadItem = {
+  id: number;
+  path: string;
+  contentLength: number;
+  imageCount: number;
+  updatedAt: string;
+};
+type PageData<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+const PAGE_SIZE = 20;
+
+function Pagination({
+  page,
+  totalPages,
+  onPage,
+}: {
+  page: number;
+  totalPages: number;
+  onPage: (p: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-3 mt-4">
+      <button
+        onClick={() => onPage(page - 1)}
+        disabled={page === 0}
+        className="text-sm px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        Anterior
+      </button>
+      <span className="text-xs text-stone-400 dark:text-stone-500">
+        {page + 1} / {totalPages}
+      </span>
+      <button
+        onClick={() => onPage(page + 1)}
+        disabled={page >= totalPages - 1}
+        className="text-sm px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        Próxima
+      </button>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [dark, toggle] = useDarkMode();
@@ -16,18 +72,47 @@ export default function AdminPage() {
     loading: authLoading,
   } = useAuth();
 
-  const [users, setUsers] = useState<
-    { id: number; username: string; role: string; approved: boolean }[]
-  >([]);
+  const [tab, setTab] = useState<Tab>("users");
+
+  // ── Users state ──
+  const [pendingData, setPendingData] = useState<PageData<UserItem>>({
+    items: [],
+    total: 0,
+    page: 0,
+    totalPages: 1,
+  });
+  const [approvedData, setApprovedData] = useState<PageData<UserItem>>({
+    items: [],
+    total: 0,
+    page: 0,
+    totalPages: 1,
+  });
   const [showCreate, setShowCreate] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(
+    null,
+  );
+  const [generatedUser, setGeneratedUser] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // ── Pads state ──
+  const [padsData, setPadsData] = useState<PageData<PadItem>>({
+    items: [],
+    total: 0,
+    page: 0,
+    totalPages: 1,
+  });
+  const [padSearch, setPadSearch] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // ── Auth message ──
   const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
-    if (authStatus === "pending") {
+    if (authStatus === "pending")
       return "Conta criada! Aguarde aprovação do administrador.";
-    }
     if (authStatus === "error") {
       const msg = params.get("message");
       return msg
@@ -40,41 +125,83 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authMsg) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("auth")) {
+    if (params.get("auth"))
       window.history.replaceState({}, "", window.location.pathname);
-    }
     const t = setTimeout(() => setAuthMsg(null), 8000);
     return () => clearTimeout(t);
   }, [authMsg]);
-  const [loading, setLoading] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState<string | null>(
-    null,
+
+  // ── Fetch helpers ──
+  const fetchPending = useCallback(
+    async (page = 0, signal?: AbortSignal) => {
+      const res = await fetch(
+        `${API}/api/admin/users?approved=false&page=${page}&size=${PAGE_SIZE}`,
+        { credentials: "include", signal },
+      );
+      if (res.ok) setPendingData(await res.json());
+    },
+    [],
   );
-  const [generatedUser, setGeneratedUser] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
-  const fetchUsers = async () => {
-    const res = await fetch(`${API}/api/admin/users`, {
-      credentials: "include",
-    });
-    if (res.ok) setUsers(await res.json());
-  };
+  const fetchApproved = useCallback(
+    async (page = 0, signal?: AbortSignal) => {
+      const res = await fetch(
+        `${API}/api/admin/users?approved=true&page=${page}&size=${PAGE_SIZE}`,
+        { credentials: "include", signal },
+      );
+      if (res.ok) setApprovedData(await res.json());
+    },
+    [],
+  );
 
+  const fetchPads = useCallback(
+    async (page = 0, search = padSearch, signal?: AbortSignal) => {
+      const q = search.trim();
+      const url = `${API}/api/admin/pads?page=${page}&size=${PAGE_SIZE}${q ? `&search=${encodeURIComponent(q)}` : ""}`;
+      const res = await fetch(url, { credentials: "include", signal });
+      if (res.ok) setPadsData(await res.json());
+    },
+    [padSearch],
+  );
+
+  // ── Initial load ──
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) return;
     const controller = new AbortController();
+    const signal = controller.signal;
     (async () => {
-      const res = await fetch(`${API}/api/admin/users`, {
-        credentials: "include",
-        signal: controller.signal,
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!controller.signal.aborted) setUsers(data);
+      const [pendingRes, approvedRes, padsRes] = await Promise.all([
+        fetch(`${API}/api/admin/users?approved=false&page=0&size=${PAGE_SIZE}`, {
+          credentials: "include",
+          signal,
+        }),
+        fetch(`${API}/api/admin/users?approved=true&page=0&size=${PAGE_SIZE}`, {
+          credentials: "include",
+          signal,
+        }),
+        fetch(`${API}/api/admin/pads?page=0&size=${PAGE_SIZE}`, {
+          credentials: "include",
+          signal,
+        }),
+      ]);
+      if (signal.aborted) return;
+      if (pendingRes.ok) setPendingData(await pendingRes.json());
+      if (approvedRes.ok) setApprovedData(await approvedRes.json());
+      if (padsRes.ok) setPadsData(await padsRes.json());
     })().catch(() => {});
     return () => controller.abort();
   }, [isAuthenticated, isAdmin]);
 
+  // ── Pad search debounce ──
+  const handlePadSearch = (value: string) => {
+    setPadSearch(value);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      fetchPads(0, value);
+    }, 300);
+  };
+
+  // ── User actions ──
   const createUser = async () => {
     if (!newUsername) {
       setError("Preencha o nome de usuário");
@@ -100,7 +227,7 @@ export default function AdminPage() {
     setCopied(false);
     setNewUsername("");
     setShowCreate(false);
-    fetchUsers();
+    fetchApproved(approvedData.page);
   };
 
   const approveUser = async (id: number) => {
@@ -108,16 +235,18 @@ export default function AdminPage() {
       method: "PUT",
       credentials: "include",
     });
-    fetchUsers();
+    fetchPending(pendingData.page);
+    fetchApproved(approvedData.page);
   };
 
-  const deleteUser = async (id: number) => {
+  const deleteUser = async (id: number, approved: boolean) => {
     if (!confirm("Tem certeza que deseja remover este usuário?")) return;
     await fetch(`${API}/api/admin/users/${id}`, {
       method: "DELETE",
       credentials: "include",
     });
-    fetchUsers();
+    if (approved) fetchApproved(approvedData.page);
+    else fetchPending(pendingData.page);
   };
 
   const copyPassword = () => {
@@ -127,8 +256,46 @@ export default function AdminPage() {
     }
   };
 
-  const pendingUsers = users.filter((u) => !u.approved);
-  const approvedUsers = users.filter((u) => u.approved);
+  // ── Pad actions ──
+  const deletePad = async (id: number, path: string) => {
+    if (
+      !confirm(
+        `Tem certeza que deseja remover o pad "/${path}" e todas as suas imagens?`,
+      )
+    )
+      return;
+    await fetch(`${API}/api/admin/pads/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    fetchPads(padsData.page, padSearch);
+  };
+
+  // ── Formatters ──
+  const formatSize = (chars: number) => {
+    if (chars < 1000) return `${chars} chars`;
+    if (chars < 1_000_000) return `${(chars / 1000).toFixed(1)}k chars`;
+    return `${(chars / 1_000_000).toFixed(1)}M chars`;
+  };
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // ── Tab styling ──
+  const tabClass = (t: Tab) =>
+    `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+      tab === t
+        ? "bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800"
+        : "text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+    }`;
 
   return (
     <>
@@ -224,35 +391,51 @@ export default function AdminPage() {
             <div className="text-center text-stone-400 dark:text-stone-500 py-16">
               <p>Acesso restrito a administradores.</p>
             </div>
+          ) : authLoading ? (
+            <div className="flex justify-center py-16">
+              <svg
+                className="w-6 h-6 animate-spin text-stone-400"
+                viewBox="0 0 16 16"
+                fill="none"
+              >
+                <circle
+                  cx="8"
+                  cy="8"
+                  r="6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  opacity="0.3"
+                />
+                <path
+                  d="M14 8a6 6 0 00-6-6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
           ) : (
             <>
-              {authLoading ? (
-                <div className="flex justify-center py-16">
-                  <svg
-                    className="w-6 h-6 animate-spin text-stone-400"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                  >
-                    <circle
-                      cx="8"
-                      cy="8"
-                      r="6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      opacity="0.3"
-                    />
-                    <path
-                      d="M14 8a6 6 0 00-6-6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
-              ) : (
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6">
+                <button className={tabClass("users")} onClick={() => setTab("users")}>
+                  Usuários
+                  {pendingData.total > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-amber-500 text-white">
+                      {pendingData.total}
+                    </span>
+                  )}
+                </button>
+                <button className={tabClass("pads")} onClick={() => setTab("pads")}>
+                  Pads
+                </button>
+              </div>
+
+              {/* ════════ Users Tab ════════ */}
+              {tab === "users" && (
                 <>
                   <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-lg font-semibold">Usuários</h1>
+                    <h2 className="text-lg font-semibold">Usuários</h2>
                     <button
                       onClick={() => setShowCreate(!showCreate)}
                       className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-3 py-1.5 hover:opacity-80 transition-opacity"
@@ -275,7 +458,9 @@ export default function AdminPage() {
                       <p className="text-xs text-stone-400">
                         A senha será gerada automaticamente.
                       </p>
-                      {error && <p className="text-xs text-red-500">{error}</p>}
+                      {error && (
+                        <p className="text-xs text-red-500">{error}</p>
+                      )}
                       <div className="flex gap-2">
                         <button
                           onClick={createUser}
@@ -297,13 +482,16 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  {pendingUsers.length > 0 && (
+                  {/* Pending users */}
+                  {pendingData.total > 0 && (
                     <div className="mb-6">
-                      <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 mb-3">
-                        Pendentes
-                      </h2>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400">
+                          Pendentes ({pendingData.total})
+                        </h3>
+                      </div>
                       <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-amber-200 dark:border-amber-700/50 rounded-xl overflow-hidden">
-                        {pendingUsers.map((u) => (
+                        {pendingData.items.map((u) => (
                           <div
                             key={u.id}
                             className="flex items-center px-4 py-3 bg-amber-50/50 dark:bg-amber-900/10"
@@ -322,7 +510,7 @@ export default function AdminPage() {
                                 Aprovar
                               </button>
                               <button
-                                onClick={() => deleteUser(u.id)}
+                                onClick={() => deleteUser(u.id, false)}
                                 className="text-xs text-red-400 hover:text-red-600 transition-colors"
                               >
                                 Recusar
@@ -331,48 +519,132 @@ export default function AdminPage() {
                           </div>
                         ))}
                       </div>
+                      <Pagination
+                        page={pendingData.page}
+                        totalPages={pendingData.totalPages}
+                        onPage={(p) => fetchPending(p)}
+                      />
                     </div>
                   )}
 
-                  <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
-                    {approvedUsers.length === 0 &&
-                      pendingUsers.length === 0 && (
-                        <p className="text-sm text-stone-400 text-center py-8">
-                          Nenhum usuário cadastrado.
-                        </p>
-                      )}
-                    {approvedUsers.map((u) => (
-                      <div
-                        key={u.id}
-                        className="flex items-center px-4 py-3 bg-white dark:bg-stone-800/50"
-                      >
-                        <span className="flex-1 text-sm font-medium">
-                          {u.username}
-                        </span>
-                        <span className="flex items-center gap-1.5 w-24">
-                          {u.role === "ADMIN" ? (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
-                              ADMIN
-                            </span>
-                          ) : (
-                            <span className="text-xs text-stone-400 dark:text-stone-500 px-1">
-                              USER
-                            </span>
-                          )}
-                        </span>
-                        <div className="flex items-center justify-end gap-3 w-32">
-                          {u.username !== username && (
-                            <button
-                              onClick={() => deleteUser(u.id)}
-                              className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
-                            >
-                              Remover
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  {/* Approved users */}
+                  <div className="mb-3">
+                    <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400">
+                      Aprovados ({approvedData.total})
+                    </h3>
                   </div>
+                  <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
+                    {approvedData.items.length === 0 ? (
+                      <p className="text-sm text-stone-400 text-center py-8">
+                        Nenhum usuário aprovado.
+                      </p>
+                    ) : (
+                      approvedData.items.map((u) => (
+                        <div
+                          key={u.id}
+                          className="flex items-center px-4 py-3 bg-white dark:bg-stone-800/50"
+                        >
+                          <span className="flex-1 text-sm font-medium">
+                            {u.username}
+                          </span>
+                          <span className="flex items-center gap-1.5 w-24">
+                            {u.role === "ADMIN" ? (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
+                                ADMIN
+                              </span>
+                            ) : (
+                              <span className="text-xs text-stone-400 dark:text-stone-500 px-1">
+                                USER
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center justify-end gap-3 w-32">
+                            {u.username !== username && (
+                              <button
+                                onClick={() => deleteUser(u.id, true)}
+                                className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
+                              >
+                                Remover
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <Pagination
+                    page={approvedData.page}
+                    totalPages={approvedData.totalPages}
+                    onPage={(p) => fetchApproved(p)}
+                  />
+                </>
+              )}
+
+              {/* ════════ Pads Tab ════════ */}
+              {tab === "pads" && (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">Pads</h2>
+                    <span className="text-sm text-stone-400 dark:text-stone-500">
+                      {padsData.total}{" "}
+                      {padsData.total === 1 ? "pad" : "pads"} com conteúdo
+                    </span>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Pesquisar por nome do pad..."
+                    value={padSearch}
+                    onChange={(e) => handlePadSearch(e.target.value)}
+                    className="w-full mb-4 border border-stone-200 dark:border-stone-600 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 placeholder:text-stone-400"
+                  />
+
+                  <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
+                    {padsData.items.length === 0 ? (
+                      <p className="text-sm text-stone-400 text-center py-8">
+                        {padSearch.trim()
+                          ? "Nenhum pad encontrado."
+                          : "Nenhum pad com conteúdo."}
+                      </p>
+                    ) : (
+                      padsData.items.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center px-4 py-3 bg-white dark:bg-stone-800/50 gap-3"
+                        >
+                          <a
+                            href={`${import.meta.env.BASE_URL}${p.path}`}
+                            className="flex-1 text-sm font-medium text-stone-700 dark:text-stone-200 hover:text-stone-900 dark:hover:text-white transition-colors truncate"
+                          >
+                            /{p.path}
+                          </a>
+                          <span className="text-xs text-stone-400 dark:text-stone-500 whitespace-nowrap">
+                            {formatSize(p.contentLength)}
+                          </span>
+                          {p.imageCount > 0 && (
+                            <span className="text-xs text-stone-400 dark:text-stone-500 whitespace-nowrap">
+                              {p.imageCount}{" "}
+                              {p.imageCount === 1 ? "img" : "imgs"}
+                            </span>
+                          )}
+                          <span className="text-xs text-stone-400 dark:text-stone-500 whitespace-nowrap">
+                            {formatDate(p.updatedAt)}
+                          </span>
+                          <button
+                            onClick={() => deletePad(p.id, p.path)}
+                            className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors whitespace-nowrap"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <Pagination
+                    page={padsData.page}
+                    totalPages={padsData.totalPages}
+                    onPage={(p) => fetchPads(p, padSearch)}
+                  />
                 </>
               )}
             </>
