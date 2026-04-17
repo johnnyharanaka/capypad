@@ -1,4 +1,4 @@
-package com.capypad.pad;
+package com.capypad.pad.filter;
 
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -21,12 +21,12 @@ public class MaintenanceFilter implements ContainerRequestFilter {
     public void filter(ContainerRequestContext requestContext) {
         if (maintenanceMode) {
             String path = requestContext.getUriInfo().getPath();
-            
+
             // Allow OPTIONS preflight to pass through for CORS headers
             if (requestContext.getMethod().equalsIgnoreCase("OPTIONS")) {
                 return;
             }
-            
+
             if (path != null && (path.startsWith("/api/") || path.startsWith("api/"))) {
                 requestContext.abortWith(Response.status(503)
                         .entity("{\"error\": \"System is currently under maintenance. Please try again later.\"}")

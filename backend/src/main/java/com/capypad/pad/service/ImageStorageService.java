@@ -1,5 +1,6 @@
-package com.capypad.pad;
+package com.capypad.pad.service;
 
+import com.capypad.pad.model.PadImage;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -19,7 +20,7 @@ import java.util.HexFormat;
 public class ImageStorageService {
 
     @ConfigProperty(name = "capypad.image.storage-dir", defaultValue = "./data/images")
-    String storageDir;
+    public String storageDir;
 
     @PostConstruct
     void init() {

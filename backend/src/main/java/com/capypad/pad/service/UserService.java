@@ -1,9 +1,11 @@
-package com.capypad.pad;
+package com.capypad.pad.service;
 
 import com.capypad.pad.dto.AdminCreateUserRequest;
 import com.capypad.pad.dto.AdminCreateUserResponse;
 import com.capypad.pad.dto.CreateUserRequest;
 import com.capypad.pad.dto.UserSummary;
+import com.capypad.pad.model.Role;
+import com.capypad.pad.model.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.control.ActivateRequestContext;

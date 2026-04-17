@@ -1,4 +1,4 @@
-package com.capypad.pad;
+package com.capypad.pad.controller;
 
 import com.capypad.pad.dto.AdminCreateUserRequest;
 import com.capypad.pad.dto.AdminCreateUserResponse;
@@ -7,6 +7,13 @@ import com.capypad.pad.dto.PadSummary;
 import com.capypad.pad.dto.SiteSettingsDto;
 import com.capypad.pad.dto.UserPage;
 import com.capypad.pad.dto.UserSummary;
+import com.capypad.pad.model.Pad;
+import com.capypad.pad.model.PadImage;
+import com.capypad.pad.model.SiteSettings;
+import com.capypad.pad.model.User;
+import com.capypad.pad.service.ImageStorageService;
+import com.capypad.pad.service.SiteSettingsService;
+import com.capypad.pad.service.UserService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

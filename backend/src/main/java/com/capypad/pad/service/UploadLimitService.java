@@ -1,5 +1,7 @@
-package com.capypad.pad;
+package com.capypad.pad.service;
 
+import com.capypad.pad.dto.UploadLimitStatus;
+import com.capypad.pad.model.PadImage;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 

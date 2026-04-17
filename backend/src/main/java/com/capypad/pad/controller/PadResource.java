@@ -1,5 +1,15 @@
-package com.capypad.pad;
+package com.capypad.pad.controller;
 
+import com.capypad.pad.dto.PadDto;
+import com.capypad.pad.dto.PadUpdateDto;
+import com.capypad.pad.dto.UploadLimitStatus;
+import com.capypad.pad.model.Pad;
+import com.capypad.pad.model.PadImage;
+import com.capypad.pad.model.SiteSettings;
+import com.capypad.pad.service.ImageStorageService;
+import com.capypad.pad.service.PadCreationLimiter;
+import com.capypad.pad.service.SiteSettingsService;
+import com.capypad.pad.service.UploadLimitService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -135,8 +145,6 @@ public class PadResource {
         SiteSettings settings = siteSettingsService.get();
         boolean filesBlocked = settings.blockFiles;
 
-        // When blockFiles is active, still return real limits so the frontend
-        // can restore correctly when the setting is toggled off.
         long imageCount = PadImage.countByPadPath(normalized);
         long totalBytes = PadImage.totalSizeByPadPath(normalized);
 

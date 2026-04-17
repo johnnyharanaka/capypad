@@ -1,4 +1,4 @@
-package com.capypad.pad;
+package com.capypad.pad.security;
 
 import io.quarkus.security.identity.IdentityProviderManager;
 import io.quarkus.security.identity.SecurityIdentity;
@@ -34,8 +34,6 @@ public class CookieBearerAuthMechanism implements HttpAuthenticationMechanism {
             return Uni.createFrom().nullItem();
         }
 
-        // OIDC identity provider needs the current RoutingContext on the auth request.
-        // Without it, tenant resolution can fail and auth may end as a generic failure.
         TokenAuthenticationRequest authRequest = new TokenAuthenticationRequest(new AccessTokenCredential(cookie.getValue()));
         HttpSecurityUtils.setRoutingContextAttribute(authRequest, context);
 

@@ -1,5 +1,6 @@
-package com.capypad.pad;
+package com.capypad.pad.service;
 
+import com.capypad.pad.model.SiteSettings;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;

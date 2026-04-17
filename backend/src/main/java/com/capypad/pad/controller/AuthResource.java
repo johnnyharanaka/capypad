@@ -1,5 +1,8 @@
-package com.capypad.pad;
+package com.capypad.pad.controller;
 
+import com.capypad.pad.dto.UserSummary;
+import com.capypad.pad.model.User;
+import com.capypad.pad.service.UserService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -56,11 +59,6 @@ public class AuthResource {
     @ConfigProperty(name = "quarkus.oidc.auth-server-url")
     String oidcAuthServerUrl;
 
-    /**
-     * GET /api/auth/login?redirect=...
-     * Generates PKCE verifier/challenge + state, stores them in a temporary cookie,
-     * and redirects the browser to Keycloak's authorization endpoint.
-     */
     @GET
     @Path("/login")
     public Response login(@QueryParam("redirect") String redirect) {
@@ -69,7 +67,6 @@ public class AuthResource {
             String codeChallenge = generateCodeChallenge(codeVerifier);
             String state = generateState();
 
-            // Store verifier + state + redirect in a temporary HttpOnly cookie
             String pkceData = codeVerifier + "|" + state + "|" + (redirect != null ? redirect : frontendUrl);
             String pkceCookie = buildPkceCookie(pkceData);
 
@@ -92,11 +89,6 @@ public class AuthResource {
         }
     }
 
-    /**
-     * GET /api/auth/callback?code=...&state=...
-     * Receives the authorization code from Keycloak, validates state,
-     * exchanges code for token using PKCE, checks user approval, sets JWT cookie.
-     */
     @GET
     @Path("/callback")
     @Produces(MediaType.TEXT_HTML)
@@ -169,11 +161,6 @@ public class AuthResource {
         return builder.build();
     }
 
-    /**
-     * GET /api/auth/me
-     * Returns the current user's info from the JWT cookie.
-     * Used by the frontend to check session on page load.
-     */
     @GET
     @Path("/me")
     public Response me(@jakarta.ws.rs.core.Context jakarta.ws.rs.core.SecurityContext securityContext) {
@@ -193,16 +180,11 @@ public class AuthResource {
         }
 
         User user = userOpt.get();
-        return Response.ok(new com.capypad.pad.dto.UserSummary(
+        return Response.ok(new UserSummary(
                 user.id, user.username, user.role.name(), user.approved))
                 .build();
     }
 
-    /**
-     * POST /api/auth/logout
-     * Clears the JWT cookie and returns the Keycloak end-session URL
-     * so the frontend can redirect the browser and terminate the SSO session.
-     */
     @POST
     @Path("/logout")
     public Response logout(@QueryParam("redirect") String redirect,
@@ -255,7 +237,7 @@ public class AuthResource {
     private String buildPkceCookie(String value) {
         StringBuilder sb = new StringBuilder();
         sb.append(PKCE_COOKIE_NAME).append('=').append(encode(value));
-        sb.append("; Path=/api/auth; HttpOnly; Max-Age=300"); // 5 min TTL
+        sb.append("; Path=/api/auth; HttpOnly; Max-Age=300");
         sb.append("; SameSite=").append(cookieSameSite);
         if (cookieSecure) sb.append("; Secure");
         return sb.toString();

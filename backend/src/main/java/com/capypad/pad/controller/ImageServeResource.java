@@ -1,5 +1,7 @@
-package com.capypad.pad;
+package com.capypad.pad.controller;
 
+import com.capypad.pad.model.PadImage;
+import com.capypad.pad.service.ImageStorageService;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

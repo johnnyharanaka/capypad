@@ -1,4 +1,4 @@
-package com.capypad.pad;
+package com.capypad.pad.filter;
 
 import io.quarkus.scheduler.Scheduled;
 import jakarta.annotation.Priority;

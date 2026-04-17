@@ -1,4 +1,4 @@
-package com.capypad.pad;
+package com.capypad.pad.dto;
 
 public record PadDto(
 	String path,

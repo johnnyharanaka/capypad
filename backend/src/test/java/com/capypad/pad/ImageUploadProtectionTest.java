@@ -81,10 +81,16 @@ class ImageUploadProtectionTest {
                 .statusCode(201);
     }
 
+    private static final byte[] PNG_HEADER = {
+            (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+    };
+
     private Path createTempImage(int sizeBytes) throws IOException {
-        Path file = Files.createTempFile("capypad-upload-", ".img");
-        byte[] bytes = new byte[sizeBytes];
-        for (int i = 0; i < bytes.length; i++) {
+        int totalSize = Math.max(sizeBytes, PNG_HEADER.length);
+        Path file = Files.createTempFile("capypad-upload-", ".png");
+        byte[] bytes = new byte[totalSize];
+        System.arraycopy(PNG_HEADER, 0, bytes, 0, PNG_HEADER.length);
+        for (int i = PNG_HEADER.length; i < bytes.length; i++) {
             bytes[i] = (byte) (i % 127);
         }
         Files.write(file, bytes);

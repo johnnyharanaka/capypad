@@ -1,5 +1,9 @@
-package com.capypad.pad;
+package com.capypad.pad.job;
 
+import com.capypad.pad.model.Pad;
+import com.capypad.pad.model.PadImage;
+import com.capypad.pad.service.ImageStorageService;
+import com.capypad.pad.service.SiteSettingsService;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -23,7 +27,7 @@ public class PadCleanupJob {
 
     @Scheduled(every = "${capypad.cleanup.interval:24h}")
     @Transactional
-    void cleanup() {
+    public void cleanup() {
         int maxAgeDays = siteSettingsService.get().cleanupMaxAgeDays;
         Instant cutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
         List<Pad> expired = Pad.list("updatedAt < ?1", cutoff);

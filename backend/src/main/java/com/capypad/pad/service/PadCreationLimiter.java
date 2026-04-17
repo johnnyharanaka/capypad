@@ -1,4 +1,4 @@
-package com.capypad.pad;
+package com.capypad.pad.service;
 
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;

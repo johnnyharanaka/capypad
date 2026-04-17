@@ -1,5 +1,6 @@
-package com.capypad.pad;
+package com.capypad.pad.security;
 
+import com.capypad.pad.service.UserService;
 import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;

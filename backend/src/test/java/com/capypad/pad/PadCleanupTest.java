@@ -1,5 +1,7 @@
 package com.capypad.pad;
 
+import com.capypad.pad.job.PadCleanupJob;
+import com.capypad.pad.model.Pad;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
