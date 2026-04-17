@@ -37,7 +37,8 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
-  const { isAuthenticated, isAdmin, username, login, logout } = useAuth();
+  const { isAuthenticated, isAdmin, username, login, logout, loading } =
+    useAuth();
   const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
@@ -225,6 +226,32 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
           <ThemeToggle dark={dark} toggle={toggle} />
         </div>
       </header>
+      {!loading && !isAuthenticated && !authMsg && (
+        <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-sky-50/70 dark:bg-sky-900/20 text-sky-800 dark:text-sky-200 flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="w-3.5 h-3.5 shrink-0"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span>
+            Modo leitura.{" "}
+            <button
+              onClick={login}
+              className="underline underline-offset-2 hover:text-sky-600 dark:hover:text-sky-100 transition-colors font-medium"
+            >
+              Faça login
+            </button>{" "}
+            para editar este pad.
+          </span>
+        </div>
+      )}
       {(uploadBlocked || uploadError || authMsg) && (
         <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-amber-50/70 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">
           {authMsg ?? uploadError ?? uploadBlockReason}
