@@ -10,6 +10,7 @@ public record PadDto(
 	boolean uploadBlocked,
 	String uploadBlockReason,
 	boolean maintenanceMode,
-	boolean blockFiles
+	boolean blockFiles,
+	String lastEditedBy
 ) {
 }

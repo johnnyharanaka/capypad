@@ -24,6 +24,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.nio.charset.StandardCharsets;
@@ -81,7 +82,7 @@ public class PadResource {
         String normalized = path.toLowerCase();
         validatePath(normalized);
         Pad pad = Pad.findByPath(normalized);
-        return toPadDto(normalized, pad != null ? pad.content : "");
+        return toPadDto(normalized, pad != null ? pad.content : "", pad != null ? pad.lastEditedBy : null);
     }
 
     @PUT
@@ -91,7 +92,8 @@ public class PadResource {
     public Response put(
             @PathParam("path") String path,
             PadUpdateDto dto,
-            @Context HttpHeaders headers) {
+            @Context HttpHeaders headers,
+            @Context SecurityContext securityContext) {
         String normalized = path.toLowerCase();
         validatePath(normalized);
 
@@ -123,6 +125,9 @@ public class PadResource {
             pad.path = normalized;
         }
         pad.content = content;
+        if (securityContext.getUserPrincipal() != null) {
+            pad.lastEditedBy = securityContext.getUserPrincipal().getName();
+        }
         pad.persist();
 
         // Clean up orphaned images
@@ -142,13 +147,13 @@ public class PadResource {
             }
         }
 
-        PadDto result = toPadDto(normalized, pad.content);
+        PadDto result = toPadDto(normalized, pad.content, pad.lastEditedBy);
         String clientId = headers.getHeaderString("X-Client-Id");
         broadcaster.publish(normalized, clientId, result);
         return Response.ok(result).build();
     }
 
-    private PadDto toPadDto(String normalized, String content) {
+    private PadDto toPadDto(String normalized, String content, String lastEditedBy) {
         SiteSettings settings = siteSettingsService.get();
         boolean filesBlocked = settings.blockFiles;
 
@@ -161,7 +166,8 @@ public class PadResource {
                     imageCount, maxImagesPerPad,
                     totalBytes, maxBytesPerPad,
                     true, "Upload de arquivos está desabilitado.",
-                    settings.maintenanceMode, true
+                    settings.maintenanceMode, true,
+                    lastEditedBy
             );
         }
 
@@ -171,7 +177,8 @@ public class PadResource {
                 limits.imageCount(), limits.imageCountLimit(),
                 limits.totalImageBytes(), limits.totalImageBytesLimit(),
                 limits.uploadBlocked(), limits.uploadBlockReason(),
-                settings.maintenanceMode, false
+                settings.maintenanceMode, false,
+                lastEditedBy
         );
     }
 

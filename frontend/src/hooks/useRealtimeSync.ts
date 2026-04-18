@@ -12,6 +12,7 @@ export interface PadRemoteUpdate {
   uploadBlockReason: string | null;
   maintenanceMode: boolean;
   blockFiles: boolean;
+  lastEditedBy: string | null;
 }
 
 /**

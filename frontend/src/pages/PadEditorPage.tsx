@@ -37,6 +37,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
     null,
   );
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lastEditedBy, setLastEditedBy] = useState<string | null>(null);
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
@@ -129,9 +130,11 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       totalImageBytesLimit: number;
       uploadBlocked: boolean;
       uploadBlockReason: string | null;
+      lastEditedBy?: string | null;
     }) => {
       // Skip if the user is actively typing (avoids clobbering cursor/edits).
       if (Date.now() - lastLocalEditAt.current < 800) return;
+      if (pad.lastEditedBy !== undefined) setLastEditedBy(pad.lastEditedBy ?? null);
       if (pad.content === contentRef.current) {
         applyUploadLimits(pad);
         return;
@@ -150,6 +153,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       .then((res) => res.json())
       .then((data) => {
         setContent(data.content);
+        setLastEditedBy(data.lastEditedBy ?? null);
         applyUploadLimits({
           imageCount: data.imageCount ?? 0,
           imageCountLimit: data.imageCountLimit ?? 20,
@@ -207,6 +211,11 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
             /{padPath}
           </span>
         </a>
+        {lastEditedBy && (
+          <span className="text-[11px] text-stone-400/70 dark:text-stone-500/70 hidden sm:inline truncate max-w-[150px]">
+            · editado por {lastEditedBy}
+          </span>
+        )}
         <div className="flex-1 min-w-0" />
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <span className="text-[11px] text-stone-400 dark:text-stone-500 tabular-nums mr-1 hidden sm:inline">
