@@ -43,6 +43,7 @@ public class ImageServeResource {
             return Response.notModified()
                     .tag(etag)
                     .header("Cache-Control", IMMUTABLE_CACHE_CONTROL)
+                    .header("Vary", "Origin")
                     .build();
         }
         File file = storage.resolveForRecord(record).toFile();
@@ -52,6 +53,7 @@ public class ImageServeResource {
         return Response.ok(file, record.contentType)
                 .header("Cache-Control", IMMUTABLE_CACHE_CONTROL)
                 .header("ETag", etag)
+                .header("Vary", "Origin")
                 .build();
     }
 
