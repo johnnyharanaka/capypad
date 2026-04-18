@@ -294,16 +294,14 @@ export default function PadCodeEditor({
           return false;
         },
       }),
-      // Drag-and-drop: attach on view.dom with capture to intercept before browser navigates
+      // Drag-and-drop: attach on window so drops outside the editor bounds
+      // (e.g. empty pad) are still captured and don't navigate to the image URL
       ViewPlugin.fromClass(
         class {
           onDragOver: (e: DragEvent) => void;
           onDrop: (e: DragEvent) => void;
-          dom: HTMLElement;
 
           constructor(view: EditorView) {
-            this.dom = view.dom;
-
             this.onDragOver = (e: DragEvent) => {
               if (e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files")) {
                 e.preventDefault();
@@ -337,21 +335,20 @@ export default function PadCodeEditor({
                 x: e.clientX,
                 y: e.clientY,
               });
-              if (dropPos != null) {
-                view.dispatch({ selection: { anchor: dropPos } });
-              }
+              const anchor = dropPos ?? view.state.doc.length;
+              view.dispatch({ selection: { anchor } });
               for (const file of imageFiles) {
                 handleImageFile(file, view);
               }
             };
 
-            this.dom.addEventListener("dragover", this.onDragOver, true);
-            this.dom.addEventListener("drop", this.onDrop, true);
+            window.addEventListener("dragover", this.onDragOver, true);
+            window.addEventListener("drop", this.onDrop, true);
           }
 
           destroy() {
-            this.dom.removeEventListener("dragover", this.onDragOver, true);
-            this.dom.removeEventListener("drop", this.onDrop, true);
+            window.removeEventListener("dragover", this.onDragOver, true);
+            window.removeEventListener("drop", this.onDrop, true);
           }
         },
       ),
