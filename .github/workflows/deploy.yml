@@ -34,6 +34,9 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Add CNAME
+        run: echo "capypad.eiji.dev" > frontend/dist/CNAME
+
       - name: Copy index.html as 404.html (SPA fallback)
         run: cp frontend/dist/index.html frontend/dist/404.html
 
