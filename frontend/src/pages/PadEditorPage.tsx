@@ -12,6 +12,7 @@ import Logo from "@/components/layout/Logo";
 import PadCodeEditor from "@/editor/PadEditor";
 import { useAuth } from "@/hooks/useAuth";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 function useWordCount(content: string | null) {
   if (!content) return { words: 0, chars: 0 };
@@ -112,6 +113,38 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
     setShowLoginModal(true);
   }, []);
 
+  const lastLocalEditAt = useRef(0);
+  const suppressSaveRef = useRef(false);
+  const contentRef = useRef<string | null>(null);
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
+
+  const handleRemoteUpdate = useCallback(
+    (pad: {
+      content: string;
+      imageCount: number;
+      imageCountLimit: number;
+      totalImageBytes: number;
+      totalImageBytesLimit: number;
+      uploadBlocked: boolean;
+      uploadBlockReason: string | null;
+    }) => {
+      // Skip if the user is actively typing (avoids clobbering cursor/edits).
+      if (Date.now() - lastLocalEditAt.current < 800) return;
+      if (pad.content === contentRef.current) {
+        applyUploadLimits(pad);
+        return;
+      }
+      suppressSaveRef.current = true;
+      setContent(pad.content);
+      applyUploadLimits(pad);
+    },
+    [applyUploadLimits],
+  );
+
+  const clientId = useRealtimeSync(padPath, handleRemoteUpdate);
+
   useEffect(() => {
     fetch(`${API}/api/pad/${padPath}`, { credentials: "include" })
       .then((res) => res.json())
@@ -131,11 +164,18 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
 
   useEffect(() => {
     if (content === null || !isAuthenticated) return;
+    if (suppressSaveRef.current) {
+      suppressSaveRef.current = false;
+      return;
+    }
     const timeout = setTimeout(() => {
       setSaving(true);
       fetch(`${API}/api/pad/${padPath}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client-Id": clientId,
+        },
         credentials: "include",
         body: JSON.stringify({ content }),
       })
@@ -148,7 +188,12 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         .finally(() => setSaving(false));
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [content, padPath, isAuthenticated, logout, login]);
+  }, [content, padPath, isAuthenticated, logout, login, clientId]);
+
+  const handleLocalChange = useCallback((next: string) => {
+    lastLocalEditAt.current = Date.now();
+    setContent(next);
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-stone-50 dark:bg-stone-900 text-stone-800 dark:text-stone-100">
@@ -236,7 +281,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         {content !== null && (
           <PadCodeEditor
             value={content}
-            onChange={setContent}
+            onChange={handleLocalChange}
             dark={dark}
             padPath={padPath}
             readOnly={!isAuthenticated}

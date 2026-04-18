@@ -7,6 +7,7 @@ import com.capypad.pad.model.Pad;
 import com.capypad.pad.model.PadImage;
 import com.capypad.pad.model.SiteSettings;
 import com.capypad.pad.service.ImageStorageService;
+import com.capypad.pad.service.PadBroadcastService;
 import com.capypad.pad.service.PadCreationLimiter;
 import com.capypad.pad.service.SiteSettingsService;
 import com.capypad.pad.service.UploadLimitService;
@@ -59,6 +60,9 @@ public class PadResource {
 
     @Inject
     SiteSettingsService siteSettingsService;
+
+    @Inject
+    PadBroadcastService broadcaster;
 
     /** Only letters, digits, dots, hyphens and underscores — max 100 chars. */
     private static final Pattern VALID_PATH = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,99}$");
@@ -138,7 +142,10 @@ public class PadResource {
             }
         }
 
-        return Response.ok(toPadDto(normalized, pad.content)).build();
+        PadDto result = toPadDto(normalized, pad.content);
+        String clientId = headers.getHeaderString("X-Client-Id");
+        broadcaster.publish(normalized, clientId, result);
+        return Response.ok(result).build();
     }
 
     private PadDto toPadDto(String normalized, String content) {
