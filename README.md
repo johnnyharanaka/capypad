@@ -1,33 +1,81 @@
 # CapyPad
 
-CapyPad is a collaborative real-time notepad inspired by dontpad, with Obsidian-style markdown live preview and LaTeX support.
+CapyPad is a collaborative real-time notepad inspired by dontpad, with Obsidian-style markdown live preview, LaTeX support, image uploads, and user management. Built as a **vibecoding jam** project.
 
-Users open a pad directly by URL path (for example `/my-note`), write together in real time, and changes are persisted automatically.
+Users open a pad directly by URL path (e.g. `/my-note`), write together, and changes are persisted automatically.
 
 ## Features
 
+### Editor
+
 - Real-time collaborative pads addressed by URL path
 - Case-insensitive pad paths (normalized to lowercase)
-- Live markdown preview that keeps the active cursor line editable in raw markdown
-- KaTeX math rendering for inline (`$...$`) and block (`$$...$$`) formulas
-- Image upload and serving API
-- Dark mode with system preference detection and manual toggle
 - Auto-save with debounce
-- Automatic cleanup of stale pads
+- Word and character count
+- Read-only mode for unauthenticated users with login prompt overlay
+- Copy pad URL to clipboard
+
+### Markdown Live Preview
+
+- Live rendering while editing — active cursor line stays in raw markdown
+- Headings, bold, italic, underline, strikethrough, inline code
+- Blockquotes, horizontal rules, links
+- Text alignment (center, right, justify)
+- KaTeX math rendering: inline (`$...$`) and block (`$$...$$`)
+
+### Image Upload
+
+- Drag-and-drop or click to upload JPEG, PNG, GIF, WebP (up to 10MB each)
+- Client-side image compression (max 1920px, JPEG quality 82%)
+- Content-hash deduplication — identical images are stored once
+- Per-pad limits: 20 images, 50MB total
+- Automatic cleanup of orphaned images when removed from content
+
+### Export
+
+- Download pad as PDF with full markdown, image, and LaTeX rendering
+
+### Authentication
+
+- Keycloak OIDC with PKCE
+- Secure HttpOnly cookie-based JWT storage
+- User approval workflow — new accounts require admin approval before editing
+
+### Admin Panel
+
+- **Users:** list, create, approve/reject, delete, search by status
+- **Pads:** list all pads with metadata, search by path, delete
+- **Settings:** maintenance mode, block file uploads, cleanup max age
+- **Storage:** manual orphan file cleanup with freed bytes report
+
+### Security
+
+- Role-based access control (USER / ADMIN)
+- Image content-type whitelisting + magic byte validation
+- Rate limiting: 5 uploads / 60s, 120 API requests / 60s per IP
+- Pad creation rate limiting: 20 new pads / hour per IP
+- Pad content size limit: 256KB
+- Path traversal prevention
+
+### Infrastructure
+
+- Automatic cleanup of pads not updated within configurable days (default: 30)
+- Content-hash based file storage (SHA-256) with atomic writes
+- Immutable image caching with ETags
 
 ## Tech Stack
 
-- Backend: Java + Quarkus + PostgreSQL (production) + Hibernate ORM Panache
-- Frontend: React + TypeScript + Tailwind CSS + CodeMirror 6
-- Authentication: Keycloak (OIDC)
-- Optional deploy stack: Docker Compose + reverse proxy (Nginx/Caddy)
+- **Backend:** Java + Quarkus + PostgreSQL + Hibernate ORM Panache
+- **Frontend:** React 19 + TypeScript + Tailwind CSS v4 + CodeMirror 6
+- **Auth:** Keycloak (OIDC)
+- **Deploy:** Docker Compose + reverse proxy (Nginx/Caddy)
 
 ## Repository Structure
 
-- `backend/`: Quarkus API and persistence layer
-- `frontend/`: React app and editor implementation
-- `keycloak/`: Custom Keycloak login theme
-- `docs/`: Additional deployment and Keycloak production docs
+- `backend/` — Quarkus API and persistence layer
+- `frontend/` — React app and editor implementation
+- `keycloak/` — Custom Keycloak login theme
+- `docs/` — Deployment and Keycloak production docs
 
 ## Quick Start (Local Development)
 
@@ -37,7 +85,7 @@ Users open a pad directly by URL path (for example `/my-note`), write together i
 - Node.js 20+
 - Java 21 (for local backend development outside containers)
 
-### Option 1: Start full stack with Docker Compose
+### Option 1: Full stack with Docker Compose
 
 ```bash
 cp backend/.env.example backend/.env
@@ -50,17 +98,15 @@ Services:
 - Keycloak: http://localhost:8180/auth
 - Postgres: localhost:5432
 
-Note: service ports are bound to localhost in `docker-compose.yml` to avoid accidental external exposure.
+> Service ports are bound to localhost in `docker-compose.yml` to avoid accidental external exposure.
 
-### Option 2: Run frontend and backend in dev mode
-
-Use the helper script:
+### Option 2: Dev mode
 
 ```bash
 ./dev.sh
 ```
 
-Or run each side manually:
+Or manually:
 
 ```bash
 cd backend && ./mvnw quarkus:dev
@@ -71,7 +117,7 @@ cd frontend && npm install && npm run dev
 
 Backend variables are loaded from `backend/.env`.
 
-Important values:
+Key values:
 
 - `QUARKUS_HTTP_PORT`
 - `QUARKUS_DATASOURCE_JDBC_URL`
@@ -80,7 +126,7 @@ Important values:
 - `CAPYPAD_KEYCLOAK_EXTERNAL_URL`
 - `CAPYPAD_OIDC_TOKEN_ISSUER`
 
-Frontend optional environment:
+Frontend optional:
 
 - `frontend/.env` with `VITE_API_URL`
 
@@ -89,15 +135,13 @@ Frontend optional environment:
 Backend:
 
 ```bash
-cd backend
-./mvnw test
+cd backend && ./mvnw test
 ```
 
 Frontend:
 
 ```bash
-cd frontend
-npm test
+cd frontend && npm test
 ```
 
 ## Deployment
@@ -108,10 +152,8 @@ npm test
 ## Security Notes
 
 - Do not commit `.env` files.
-- Do not commit private keys (for example `privateKey.pem`).
-- `kc_token.txt` is ignored and must never be tracked.
 - Keep backend and Keycloak ports private behind a reverse proxy in production.
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE) for details.
