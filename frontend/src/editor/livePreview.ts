@@ -502,19 +502,42 @@ class VideoWidget extends WidgetType {
     const ytMatch = this.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?]+)/);
     const driveMatch = this.url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
 
+    const addFullscreenButton = (target: HTMLElement) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "cm-live-video-wrapper";
+      wrapper.appendChild(target);
+      const fsBtn = document.createElement("button");
+      fsBtn.type = "button";
+      fsBtn.className = "cm-live-video-fs-btn";
+      fsBtn.title = "Fullscreen";
+      fsBtn.setAttribute("aria-label", "Fullscreen");
+      fsBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+      fsBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const el = target as HTMLElement & { webkitRequestFullscreen?: () => void; webkitEnterFullscreen?: () => void };
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.webkitEnterFullscreen) el.webkitEnterFullscreen();
+      });
+      wrapper.appendChild(fsBtn);
+      return wrapper;
+    };
+
     if (ytMatch && ytMatch[1]) {
       const iframe = document.createElement("iframe");
       iframe.src = `https://www.youtube.com/embed/${ytMatch[1]}`;
       iframe.allowFullscreen = true;
-      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
       iframe.className = "cm-live-video-iframe";
-      container.appendChild(iframe);
+      container.appendChild(addFullscreenButton(iframe));
     } else if (driveMatch && driveMatch[1]) {
       const iframe = document.createElement("iframe");
       iframe.src = `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
       iframe.allowFullscreen = true;
+      iframe.allow = "fullscreen";
       iframe.className = "cm-live-video-iframe";
-      container.appendChild(iframe);
+      container.appendChild(addFullscreenButton(iframe));
     } else {
       const video = document.createElement("video");
       video.src = this.url;
@@ -1369,6 +1392,11 @@ export const livePreviewTheme = EditorView.baseTheme({
       maxWidth: "50%",
     }
   },
+  ".cm-live-video-wrapper": {
+    position: "relative",
+    width: "100%",
+    boxSizing: "border-box",
+  },
   ".cm-live-video-iframe": {
     boxSizing: "border-box",
     width: "100%",
@@ -1376,6 +1404,34 @@ export const livePreviewTheme = EditorView.baseTheme({
     border: "none",
     borderRadius: "8px",
     background: "#000",
+    display: "block",
+  },
+  ".cm-live-video-fs-btn": {
+    position: "absolute",
+    top: "8px",
+    right: "8px",
+    width: "32px",
+    height: "32px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "0",
+    background: "rgba(0, 0, 0, 0.55)",
+    border: "none",
+    borderRadius: "6px",
+    color: "#fff",
+    cursor: "pointer",
+    opacity: "0",
+    transition: "opacity 0.15s",
+    zIndex: "2",
+  },
+  ".cm-live-video-wrapper:hover .cm-live-video-fs-btn": {
+    opacity: "1",
+  },
+  "@media (hover: none)": {
+    ".cm-live-video-fs-btn": {
+      opacity: "1",
+    }
   },
   ".cm-live-video-native": {
     width: "100%",
