@@ -1273,8 +1273,10 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-file-wrapper": {
     display: "inline-block",
+    boxSizing: "border-box",
     padding: "4px 0",
     position: "relative",
+    maxWidth: "100%",
   },
   ".cm-live-file-upload-btn": {
     display: "inline-flex",
@@ -1358,6 +1360,7 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-video-container": {
     display: "block",
+    boxSizing: "border-box",
     padding: "8px 0",
     maxWidth: "100%",
   },
@@ -1367,6 +1370,7 @@ export const livePreviewTheme = EditorView.baseTheme({
     }
   },
   ".cm-live-video-iframe": {
+    boxSizing: "border-box",
     width: "100%",
     aspectRatio: "16 / 9",
     border: "none",
@@ -1382,6 +1386,8 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-video-prompt": {
     display: "flex",
+    boxSizing: "border-box",
+    width: "100%",
     flexWrap: "wrap",
     alignItems: "center",
     gap: "10px",
