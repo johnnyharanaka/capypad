@@ -46,9 +46,9 @@ body.cm-live-video-fake-fs-active {
   overflow: hidden;
 }
 
-/* Hide header, floating dock, and other fixed/sticky UI when
-   fake fullscreen is active so they don't overlap the video */
-body.cm-live-video-fake-fs-active > div > header,
+/* Hide header (sticky), floating dock (fixed), and other overlapping UI
+   when fake fullscreen is active so they don't cover the video */
+body.cm-live-video-fake-fs-active .sticky,
 body.cm-live-video-fake-fs-active .fixed {
   display: none !important;
 }
