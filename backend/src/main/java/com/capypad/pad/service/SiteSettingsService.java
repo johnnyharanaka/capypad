@@ -27,11 +27,12 @@ public class SiteSettingsService {
     }
 
     @Transactional
-    public SiteSettings update(boolean maintenanceMode, boolean blockFiles, int cleanupMaxAgeDays) {
+    public SiteSettings update(boolean maintenanceMode, boolean blockFiles, int cleanupMaxAgeDays, long maxFileBytes) {
         SiteSettings settings = SiteSettings.get();
         settings.maintenanceMode = maintenanceMode;
         settings.blockFiles = blockFiles;
         settings.cleanupMaxAgeDays = Math.max(1, cleanupMaxAgeDays);
+        settings.maxFileBytes = Math.max(1048576L, maxFileBytes); // min 1MB
         settings.persist();
         return settings;
     }

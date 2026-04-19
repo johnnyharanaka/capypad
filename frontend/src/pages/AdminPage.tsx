@@ -11,6 +11,7 @@ type SiteSettings = {
   maintenanceMode: boolean;
   blockFiles: boolean;
   cleanupMaxAgeDays: number;
+  maxFileBytes: number;
 };
 type UserItem = {
   id: number;
@@ -118,10 +119,12 @@ export default function AdminPage() {
     maintenanceMode: false,
     blockFiles: false,
     cleanupMaxAgeDays: 30,
+    maxFileBytes: 10485760,
   });
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsDaysInput, setSettingsDaysInput] = useState("30");
+  const [settingsMaxFileInput, setSettingsMaxFileInput] = useState("10");
   const [confirmToggle, setConfirmToggle] = useState<{
     field: "maintenanceMode" | "blockFiles";
     label: string;
@@ -186,6 +189,7 @@ export default function AdminPage() {
       const data: SiteSettings = await res.json();
       setSettings(data);
       setSettingsDaysInput(String(data.cleanupMaxAgeDays));
+      setSettingsMaxFileInput(String(Math.floor(data.maxFileBytes / (1024 * 1024))));
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     }
@@ -241,6 +245,7 @@ export default function AdminPage() {
         const s: SiteSettings = await settingsRes.json();
         setSettings(s);
         setSettingsDaysInput(String(s.cleanupMaxAgeDays));
+        setSettingsMaxFileInput(String(Math.floor(s.maxFileBytes / (1024 * 1024))));
       }
     })().catch(() => {});
     return () => controller.abort();
@@ -810,6 +815,47 @@ export default function AdminPage() {
                         />
                         <span className="text-xs text-stone-400 dark:text-stone-500">
                           dias
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Max File Size */}
+                    <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          Tamanho máximo de arquivo
+                        </span>
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          Limite máximo por arquivo no comando \file (em MB).
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          value={settingsMaxFileInput}
+                          onChange={(e) => setSettingsMaxFileInput(e.target.value)}
+                          onBlur={() => {
+                            const mb = Math.max(1, parseInt(settingsMaxFileInput) || 10);
+                            setSettingsMaxFileInput(String(mb));
+                            const bytes = mb * 1024 * 1024;
+                            if (bytes !== settings.maxFileBytes) {
+                              const updated = {
+                                ...settings,
+                                maxFileBytes: bytes,
+                              };
+                              setSettings(updated);
+                              saveSettings(updated);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter")
+                              (e.target as HTMLInputElement).blur();
+                          }}
+                          className="w-24 border border-stone-200 dark:border-stone-600 rounded-lg pl-3 pr-1 py-1.5 text-sm bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 text-right focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 [&::-webkit-inner-spin-button]:ml-2 [&::-webkit-inner-spin-button]:opacity-100"
+                        />
+                        <span className="text-xs text-stone-400 dark:text-stone-500">
+                          MB
                         </span>
                       </div>
                     </div>
