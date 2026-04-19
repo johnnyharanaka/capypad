@@ -515,10 +515,13 @@ class VideoWidget extends WidgetType {
       fsBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const el = target as HTMLElement & { webkitRequestFullscreen?: () => void; webkitEnterFullscreen?: () => void };
-        if (el.requestFullscreen) el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else if (el.webkitEnterFullscreen) el.webkitEnterFullscreen();
+        const w = wrapper as HTMLElement & { webkitRequestFullscreen?: () => void };
+        const t = target as HTMLElement & { webkitRequestFullscreen?: () => void; webkitEnterFullscreen?: () => void };
+        if (w.requestFullscreen) w.requestFullscreen();
+        else if (w.webkitRequestFullscreen) w.webkitRequestFullscreen();
+        else if (t.requestFullscreen) t.requestFullscreen();
+        else if (t.webkitRequestFullscreen) t.webkitRequestFullscreen();
+        else if (t.webkitEnterFullscreen) t.webkitEnterFullscreen();
       });
       wrapper.appendChild(fsBtn);
       return wrapper;
@@ -1396,6 +1399,18 @@ export const livePreviewTheme = EditorView.baseTheme({
     position: "relative",
     width: "100%",
     boxSizing: "border-box",
+  },
+  ".cm-live-video-wrapper:fullscreen": {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#000",
+  },
+  ".cm-live-video-wrapper:fullscreen .cm-live-video-iframe": {
+    width: "100%",
+    height: "100%",
+    aspectRatio: "auto",
+    borderRadius: "0",
   },
   ".cm-live-video-iframe": {
     boxSizing: "border-box",
