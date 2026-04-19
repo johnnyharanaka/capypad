@@ -502,6 +502,12 @@ class VideoWidget extends WidgetType {
     const ytMatch = this.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?]+)/);
     const driveMatch = this.url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
 
+    // iOS doesn't support the Fullscreen API for cross-origin iframes.
+    // When the user taps YouTube's built-in fullscreen button on iOS,
+    // YouTube detects this and redirects to a "browser not supported" page.
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
     const addFullscreenButton = (target: HTMLElement) => {
       const wrapper = document.createElement("div");
       wrapper.className = "cm-live-video-wrapper";
@@ -522,6 +528,12 @@ class VideoWidget extends WidgetType {
         e.preventDefault();
         e.stopPropagation();
         if (wrapper.classList.contains("cm-live-video-fake-fs")) {
+          toggleFakeFs();
+          return;
+        }
+        // On iOS, always use fake fullscreen — the native API doesn't
+        // work for cross-origin iframes and causes redirects.
+        if (isIOS) {
           toggleFakeFs();
           return;
         }
@@ -547,7 +559,11 @@ class VideoWidget extends WidgetType {
 
     if (ytMatch && ytMatch[1]) {
       const iframe = document.createElement("iframe");
-      iframe.src = `https://www.youtube.com/embed/${ytMatch[1]}`;
+      // On iOS, disable YouTube's built-in fullscreen button (fs=0) because
+      // it triggers a "browser not supported" redirect. Our custom button
+      // provides fake fullscreen instead.
+      const ytParams = isIOS ? "?playsinline=1&fs=0" : "";
+      iframe.src = `https://www.youtube.com/embed/${ytMatch[1]}${ytParams}`;
       iframe.allowFullscreen = true;
       iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
       iframe.className = "cm-live-video-iframe";
@@ -558,11 +574,18 @@ class VideoWidget extends WidgetType {
       iframe.allowFullscreen = true;
       iframe.allow = "fullscreen";
       iframe.className = "cm-live-video-iframe";
+      // On iOS, prevent Drive from redirecting to a "not supported" page
+      // when its internal fullscreen button is tapped. The sandbox blocks
+      // top-level navigation while still allowing the player to work.
+      if (isIOS) {
+        iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox");
+      }
       container.appendChild(addFullscreenButton(iframe));
     } else {
       const video = document.createElement("video");
       video.src = this.url;
       video.controls = true;
+      video.setAttribute("playsinline", "");
       video.className = "cm-live-video-native";
       container.appendChild(video);
     }
