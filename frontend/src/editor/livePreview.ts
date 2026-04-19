@@ -1002,10 +1002,11 @@ function buildDecorations(
       totalImageBytesLimit: number;
     }) => void;
     onUploadError: (message: string) => void;
+    previewMode: boolean;
   },
 ): DecorationSet {
   const focused = view.hasFocus;
-  const cursorLines = focused ? getCursorLines(view.state) : new Set<number>();
+  const cursorLines = (focused && !config.previewMode) ? getCursorLines(view.state) : new Set<number>();
   const decorations: Range<Decoration>[] = [];
   const tree = syntaxTree(view.state);
   const docText = view.state.doc.toString();
@@ -1162,6 +1163,7 @@ export function createLivePreview(config: {
     totalImageBytesLimit: number;
   }) => void;
   onUploadError: (message: string) => void;
+  previewMode: boolean;
 }) {
   return ViewPlugin.fromClass(
     class {

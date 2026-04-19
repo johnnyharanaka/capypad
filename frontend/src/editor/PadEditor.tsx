@@ -106,6 +106,7 @@ interface Props {
   onUploadError: (message: string) => void;
   onEditorReady?: (view: EditorView) => void;
   onReadOnlyInput?: () => void;
+  previewMode?: boolean;
 }
 
 export default function PadCodeEditor({
@@ -120,6 +121,7 @@ export default function PadCodeEditor({
   onUploadError,
   onEditorReady,
   onReadOnlyInput,
+  previewMode = false,
 }: Props) {
   const extensions = useMemo(
     () => {
@@ -220,6 +222,7 @@ export default function PadCodeEditor({
         uploadBlockReason,
         onUploadLimitsUpdate,
         onUploadError,
+        previewMode,
       }),
       livePreviewTheme,
       EditorView.lineWrapping,
@@ -388,6 +391,7 @@ export default function PadCodeEditor({
       onUploadLimitsUpdate,
       onUploadError,
       onReadOnlyInput,
+      previewMode,
     ],
   );
 
