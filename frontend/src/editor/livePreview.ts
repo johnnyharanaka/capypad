@@ -585,6 +585,14 @@ class VideoWidget extends WidgetType {
       iframe.allow = "fullscreen";
       iframe.className = "cm-live-video-iframe";
       container.appendChild(addFullscreenButton(iframe));
+
+      const driveLink = document.createElement("a");
+      driveLink.href = `https://drive.google.com/file/d/${driveMatch[1]}/view`;
+      driveLink.target = "_blank";
+      driveLink.rel = "noopener noreferrer";
+      driveLink.className = "cm-live-video-drive-link";
+      driveLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Abrir no Google Drive`;
+      container.appendChild(driveLink);
     } else {
       const video = document.createElement("video");
       video.src = this.url;
@@ -1556,6 +1564,20 @@ export const livePreviewTheme = EditorView.baseTheme({
     borderRadius: "8px",
     background: "#000",
     display: "block",
+  },
+  ".cm-live-video-drive-link": {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    marginTop: "6px",
+    fontSize: "12px",
+    color: "rgba(120, 113, 108, 0.7)",
+    textDecoration: "none",
+    transition: "color 0.15s",
+    lineHeight: "1",
+  },
+  ".cm-live-video-drive-link:hover": {
+    color: "rgba(120, 113, 108, 1)",
   },
   ".cm-live-video-prompt": {
     display: "flex",
