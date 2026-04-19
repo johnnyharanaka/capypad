@@ -95,6 +95,14 @@ export default function Home() {
           />
         </div>
       </div>
+      <footer
+        className="absolute bottom-3 left-0 right-0 flex justify-center"
+        style={{ zIndex: 1 }}
+      >
+        <span className="text-xs text-stone-400/60 dark:text-stone-600/60 font-mono tracking-wider select-none">
+          v{__APP_VERSION__}
+        </span>
+      </footer>
     </div>
   );
 }
