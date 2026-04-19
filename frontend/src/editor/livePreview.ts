@@ -528,6 +528,10 @@ class VideoWidget extends WidgetType {
         fsBtn.innerHTML = active ? closeIcon : expandIcon;
         fsBtn.title = active ? "Exit fullscreen" : "Fullscreen";
         fsBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Fullscreen");
+        // Blur the editor so iOS doesn't open the keyboard
+        if (active && document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
       };
 
       fsBtn.addEventListener("click", (e) => {
@@ -580,12 +584,6 @@ class VideoWidget extends WidgetType {
       iframe.allowFullscreen = true;
       iframe.allow = "fullscreen";
       iframe.className = "cm-live-video-iframe";
-      // On iOS, prevent Drive from redirecting to a "not supported" page
-      // when its internal fullscreen button is tapped. The sandbox blocks
-      // top-level navigation while still allowing the player to work.
-      if (isIOS) {
-        iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox");
-      }
       container.appendChild(addFullscreenButton(iframe));
     } else {
       const video = document.createElement("video");
