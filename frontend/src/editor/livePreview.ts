@@ -1467,7 +1467,7 @@ export const livePreviewTheme = EditorView.baseTheme({
     right: "0",
     bottom: "0",
     width: "100vw",
-    height: "100vh",
+    height: "100dvh",
     background: "#000",
     zIndex: "99999",
     display: "flex",
