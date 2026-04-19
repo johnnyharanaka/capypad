@@ -1359,7 +1359,12 @@ export const livePreviewTheme = EditorView.baseTheme({
   ".cm-live-video-container": {
     display: "block",
     padding: "8px 0",
-    maxWidth: "50%",
+    maxWidth: "100%",
+  },
+  "@media (min-width: 640px)": {
+    ".cm-live-video-container": {
+      maxWidth: "50%",
+    }
   },
   ".cm-live-video-iframe": {
     width: "100%",
@@ -1377,6 +1382,7 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-video-prompt": {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: "10px",
     padding: "12px 16px",
@@ -1396,7 +1402,7 @@ export const livePreviewTheme = EditorView.baseTheme({
     outline: "none",
     fontFamily: "system-ui, sans-serif",
     fontSize: "14px",
-    minWidth: "200px"
+    minWidth: "100px"
   },
   ".cm-live-video-embed-btn": {
     display: "inline-flex",
