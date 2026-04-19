@@ -184,12 +184,34 @@ class ImageWidget extends WidgetType {
     const wrapper = document.createElement("span");
     wrapper.className = "cm-live-image-upload";
 
-    if (!this.imageId) {
+    if (this.imageId?.startsWith("uploading-")) {
+      const container = document.createElement("div");
+      container.className = "cm-live-image-spinner-container";
+      container.style.cursor = "default";
+      const icon = document.createElement("span");
+      icon.className = "cm-live-spin";
+      icon.style.display = "flex";
+      icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line></svg>`;
+      const textNode = document.createElement("span");
+      textNode.textContent = "Uploading image...";
+      container.appendChild(icon);
+      container.appendChild(textNode);
+      wrapper.appendChild(container);
+    } else if (!this.imageId) {
       const label = document.createElement("label");
       label.className = "cm-live-image-upload-btn";
-      label.textContent = this.uploadBlocked
+      
+      const icon = document.createElement("span");
+      icon.style.display = "flex";
+      icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+      
+      const textNode = document.createElement("span");
+      textNode.textContent = this.uploadBlocked
         ? (this.uploadBlockReason ?? "Upload blocked")
         : "Upload image";
+        
+      label.appendChild(icon);
+      label.appendChild(textNode);
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/jpeg,image/png,image/gif,image/webp";
@@ -211,7 +233,7 @@ class ImageWidget extends WidgetType {
         if (uploadBlocked) {
           const message =
             uploadBlockReason ?? "Image upload blocked for this pad";
-          label.textContent = message;
+          textNode.textContent = message;
           onUploadError(message);
           return;
         }
@@ -225,16 +247,16 @@ class ImageWidget extends WidgetType {
         ]);
         if (!allowedTypes.has(file.type)) {
           const message = "Only JPEG, PNG, GIF, or WebP images are allowed.";
-          label.textContent = message;
+          textNode.textContent = message;
           onUploadError(message);
           return;
         }
         if (file.size > 10 * 1024 * 1024) {
-          label.textContent = "Max 10MB. Try another file.";
+          textNode.textContent = "Max 10MB. Try another file.";
           onUploadError("File too large. Max 10MB.");
           return;
         }
-        label.textContent = "Uploading...";
+        textNode.textContent = "Uploading...";
         label.classList.add("cm-live-image-uploading");
         let optimized = file;
         try {
@@ -276,7 +298,7 @@ class ImageWidget extends WidgetType {
           .catch((err: unknown) => {
             const message =
               err instanceof Error ? err.message : "Upload failed. Try again.";
-            label.textContent = message;
+            textNode.textContent = message;
             label.classList.remove("cm-live-image-uploading");
             onUploadError(message);
           });
@@ -886,7 +908,8 @@ export const livePreviewTheme = EditorView.baseTheme({
     borderRadius: "8px",
     color: "rgba(120, 113, 108, 0.7)",
     cursor: "pointer",
-    fontSize: "0.9em",
+    fontSize: "14px",
+    fontFamily: "system-ui, sans-serif",
     transition: "border-color 0.2s, color 0.2s",
     "&:hover": {
       borderColor: "rgba(120, 113, 108, 0.6)",
@@ -899,6 +922,16 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-spin": {
     animation: "spin 1s linear infinite",
+  },
+  ".cm-live-image-spinner-container": {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "rgba(120, 113, 108, 0.7)",
+    fontSize: "14px",
+    fontFamily: "system-ui, sans-serif",
+    padding: "4px 0",
+    opacity: "0.8",
   },
   ".cm-live-image-container": {
     display: "inline-block",

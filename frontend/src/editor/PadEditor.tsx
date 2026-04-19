@@ -119,10 +119,12 @@ export default function PadCodeEditor({
           onUploadError("File too large. Max 10MB.");
           return;
         }
-        // Insert placeholder \image at cursor
+        // Insert placeholder \image[uploading-id] at cursor
+        const uploadId = Math.random().toString(36).slice(2, 8);
+        const placeholder = `\\image[uploading-${uploadId}]`;
         const pos = view.state.selection.main.head;
         view.dispatch({
-          changes: { from: pos, insert: "\n\\image\n" },
+          changes: { from: pos, insert: `\n${placeholder}\n` },
         });
         // Compress before upload (falls back to original if compression fails)
         let optimized = file;
@@ -162,14 +164,14 @@ export default function PadCodeEditor({
                 totalImageBytes: data.totalImageBytes,
                 totalImageBytesLimit: data.totalImageBytesLimit,
               });
-              // Find the bare \image we just inserted
+              // Find the placeholder we just inserted
               const doc = view.state.doc.toString();
-              const idx = doc.indexOf("\\image", pos);
-              if (idx !== -1 && doc.slice(idx, idx + 7) !== "\\image[") {
+              const idx = doc.indexOf(placeholder);
+              if (idx !== -1) {
                 view.dispatch({
                   changes: {
                     from: idx,
-                    to: idx + 6,
+                    to: idx + placeholder.length,
                     insert: `\\image[${data.imageId}]`,
                   },
                 });
@@ -184,9 +186,9 @@ export default function PadCodeEditor({
             );
             // Remove placeholder on failure
             const doc = view.state.doc.toString();
-            const idx = doc.indexOf("\\image", pos);
-            if (idx !== -1 && doc.slice(idx, idx + 7) !== "\\image[") {
-              const end = doc[idx + 6] === "\n" ? idx + 7 : idx + 6;
+            const idx = doc.indexOf(placeholder);
+            if (idx !== -1) {
+              const end = doc[idx + placeholder.length] === "\n" ? idx + placeholder.length + 1 : idx + placeholder.length;
               view.dispatch({
                 changes: {
                   from: idx > 0 && doc[idx - 1] === "\n" ? idx - 1 : idx,
