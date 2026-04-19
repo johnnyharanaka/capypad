@@ -1,6 +1,7 @@
 package com.capypad.pad.controller;
 
 import com.capypad.pad.service.PadBroadcastService;
+import io.vertx.core.http.HttpServerResponse;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -29,12 +30,16 @@ public class PadEventsResource {
             @PathParam("path") String path,
             @QueryParam("clientId") String clientId,
             @Context Sse sse,
-            @Context SseEventSink sink) {
+            @Context SseEventSink sink,
+            @Context HttpServerResponse httpResponse) {
         String normalized = path == null ? "" : path.toLowerCase();
         if (!VALID_PATH.matcher(normalized).matches() || normalized.contains("..")) {
             sink.close();
             return;
         }
+        httpResponse.headers()
+                .set("X-Accel-Buffering", "no")
+                .set("Cache-Control", "no-cache");
         broadcaster.ensureSse(sse);
         PadBroadcastService.Subscriber sub = new PadBroadcastService.Subscriber(clientId, sink);
         broadcaster.subscribe(normalized, sub);
