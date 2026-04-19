@@ -529,10 +529,19 @@ class VideoWidget extends WidgetType {
         fsBtn.title = active ? "Exit fullscreen" : "Fullscreen";
         fsBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Fullscreen");
         // Blur the editor so iOS doesn't open the keyboard
-        if (active && document.activeElement instanceof HTMLElement) {
+        if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       };
+
+      fsBtn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      fsBtn.addEventListener("touchstart", (e) => {
+        e.stopPropagation();
+      });
 
       fsBtn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -1503,8 +1512,8 @@ export const livePreviewTheme = EditorView.baseTheme({
     left: "0",
     right: "0",
     bottom: "0",
-    width: "100vw",
-    height: "100dvh",
+    width: "100%",
+    height: "100%",
     background: "#000",
     zIndex: "99999",
     display: "flex",
