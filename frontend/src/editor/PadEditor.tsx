@@ -78,6 +78,15 @@ const cleanTheme = EditorView.theme({
   ".cm-activeLineGutter": { backgroundColor: "transparent" },
   ".cm-activeLine": { backgroundColor: "transparent" },
   ".cm-line": { padding: "1px 0" },
+  "@media (max-width: 640px)": {
+    ".cm-content": {
+      padding: "0 16px",
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+      minWidth: "2ch",
+      paddingRight: "8px",
+    }
+  }
 });
 
 interface Props {
