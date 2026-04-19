@@ -1520,7 +1520,7 @@ export const livePreviewTheme = EditorView.baseTheme({
     width: "40px",
     height: "40px",
     top: "16px",
-    right: "16px",
+    left: "16px",
   },
   ".cm-live-video-iframe": {
     boxSizing: "border-box",
@@ -1534,7 +1534,7 @@ export const livePreviewTheme = EditorView.baseTheme({
   ".cm-live-video-fs-btn": {
     position: "absolute",
     top: "8px",
-    right: "8px",
+    left: "8px",
     width: "32px",
     height: "32px",
     display: "flex",
