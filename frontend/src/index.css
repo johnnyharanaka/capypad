@@ -45,3 +45,15 @@ a {
 body.cm-live-video-fake-fs-active {
   overflow: hidden;
 }
+
+/* Hide header, floating dock, and other fixed/sticky UI when
+   fake fullscreen is active so they don't overlap the video */
+body.cm-live-video-fake-fs-active > div > header,
+body.cm-live-video-fake-fs-active .fixed {
+  display: none !important;
+}
+
+/* But keep the fake-fs wrapper itself visible */
+body.cm-live-video-fake-fs-active .cm-live-video-fake-fs {
+  display: flex !important;
+}

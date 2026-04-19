@@ -517,11 +517,17 @@ class VideoWidget extends WidgetType {
       fsBtn.className = "cm-live-video-fs-btn";
       fsBtn.title = "Fullscreen";
       fsBtn.setAttribute("aria-label", "Fullscreen");
-      fsBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+
+      const expandIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>`;
+      const closeIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      fsBtn.innerHTML = expandIcon;
 
       const toggleFakeFs = () => {
         const active = wrapper.classList.toggle("cm-live-video-fake-fs");
         document.body.classList.toggle("cm-live-video-fake-fs-active", active);
+        fsBtn.innerHTML = active ? closeIcon : expandIcon;
+        fsBtn.title = active ? "Exit fullscreen" : "Fullscreen";
+        fsBtn.setAttribute("aria-label", active ? "Exit fullscreen" : "Fullscreen");
       };
 
       fsBtn.addEventListener("click", (e) => {
