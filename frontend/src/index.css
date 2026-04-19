@@ -41,3 +41,7 @@ a {
 .cm-live-spin {
   animation: spin 1s linear infinite;
 }
+
+body.cm-live-video-fake-fs-active {
+  overflow: hidden;
+}
