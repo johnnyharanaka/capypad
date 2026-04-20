@@ -1522,9 +1522,16 @@ export const livePreviewTheme = EditorView.baseTheme({
   },
   ".cm-live-video-fake-fs .cm-live-video-iframe": {
     width: "100%",
-    height: "100%",
-    aspectRatio: "auto",
+    height: "auto",
+    aspectRatio: "16 / 9",
     borderRadius: "0",
+  },
+  "@media (orientation: landscape)": {
+    ".cm-live-video-fake-fs .cm-live-video-iframe": {
+      width: "auto",
+      height: "100%",
+      aspectRatio: "16 / 9",
+    }
   },
   ".cm-live-video-fake-fs .cm-live-video-fs-btn": {
     opacity: "1",
