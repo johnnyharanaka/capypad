@@ -522,8 +522,33 @@ class VideoWidget extends WidgetType {
       const closeIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
       fsBtn.innerHTML = expandIcon;
 
+      let savedScrollY = 0;
+      let prevMinHeight = "";
+      let prevOverflow = "";
+
       const toggleFakeFs = () => {
         const active = wrapper.classList.toggle("cm-live-video-fake-fs");
+        
+        if (active) {
+          savedScrollY = window.scrollY;
+          if (isIOS) {
+            // Give iOS Safari enough scrollable space so swiping down hides the URL bar
+            prevMinHeight = document.body.style.minHeight;
+            document.body.style.minHeight = "200vh";
+          } else {
+            prevOverflow = document.documentElement.style.overflow;
+            document.documentElement.style.overflow = "hidden";
+          }
+        } else {
+          if (isIOS) {
+            document.body.style.minHeight = prevMinHeight;
+          } else {
+            document.documentElement.style.overflow = prevOverflow;
+          }
+          // Restore the exact viewing position in the editor
+          window.scrollTo(0, savedScrollY);
+        }
+
         document.body.classList.toggle("cm-live-video-fake-fs-active", active);
         fsBtn.innerHTML = active ? closeIcon : expandIcon;
         fsBtn.title = active ? "Exit fullscreen" : "Fullscreen";

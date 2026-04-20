@@ -43,7 +43,7 @@ a {
 }
 
 body.cm-live-video-fake-fs-active {
-  overflow: hidden;
+  /* overflow: hidden is handled dynamically in livePreview.ts to allow iOS Safari address bar hiding */
 }
 
 /* Hide header (sticky), floating dock (fixed), and other overlapping UI
