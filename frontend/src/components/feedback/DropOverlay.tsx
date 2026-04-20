@@ -60,7 +60,7 @@ export default function DropOverlay() {
           />
         </svg>
         <span className="text-lg font-medium text-stone-600 dark:text-stone-300">
-          Solte a imagem aqui
+          Drop image here
         </span>
       </div>
     </div>

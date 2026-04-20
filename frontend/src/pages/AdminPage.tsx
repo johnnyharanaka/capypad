@@ -52,7 +52,7 @@ function Pagination({
         disabled={page === 0}
         className="text-sm px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        Anterior
+        Previous
       </button>
       <span className="text-xs text-stone-400 dark:text-stone-500">
         {page + 1} / {totalPages}
@@ -62,7 +62,7 @@ function Pagination({
         disabled={page >= totalPages - 1}
         className="text-sm px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        Próxima
+        Next
       </button>
     </div>
   );
@@ -140,12 +140,12 @@ export default function AdminPage() {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
     if (authStatus === "pending")
-      return "Conta criada! Aguarde aprovação do administrador.";
+      return "Account created! Awaiting admin approval.";
     if (authStatus === "error") {
       const msg = params.get("message");
       return msg
-        ? `Erro na autenticação: ${msg}`
-        : "Houve um erro na autenticação.";
+        ? `Authentication error: ${msg}`
+        : "Authentication error.";
     }
     return null;
   });
@@ -263,7 +263,7 @@ export default function AdminPage() {
   // ── User actions ──
   const createUser = async () => {
     if (!newUsername) {
-      setError("Preencha o nome de usuário");
+      setError("Enter a username");
       return;
     }
     setLoading(true);
@@ -277,7 +277,7 @@ export default function AdminPage() {
     setLoading(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Erro ao criar usuário");
+      setError(data.error ?? "Failed to create user");
       return;
     }
     const data = await res.json();
@@ -299,7 +299,7 @@ export default function AdminPage() {
   };
 
   const deleteUser = async (id: number, approved: boolean) => {
-    if (!confirm("Tem certeza que deseja remover este usuário?")) return;
+    if (!confirm("Are you sure you want to delete this user?")) return;
     await fetch(`${API}/api/admin/users/${id}`, {
       method: "DELETE",
       credentials: "include",
@@ -319,7 +319,7 @@ export default function AdminPage() {
   const deletePad = async (id: number, path: string) => {
     if (
       !confirm(
-        `Tem certeza que deseja remover o pad "/${path}" e todas as suas imagens?`,
+        `Are you sure you want to delete the pad "/${path}" and all its images?`,
       )
     )
       return;
@@ -332,7 +332,7 @@ export default function AdminPage() {
 
   // ── Cleanup orphan files ──
   const cleanupOrphanFiles = async () => {
-    if (!confirm("Isso vai apagar arquivos de imagem no disco que não estão mais referenciados no banco. Continuar?")) return;
+    if (!confirm("This will delete image files on disk that are no longer referenced in the database. Continue?")) return;
     setCleanupLoading(true);
     setCleanupResult(null);
     try {
@@ -363,7 +363,7 @@ export default function AdminPage() {
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
-    return d.toLocaleDateString("pt-BR", {
+    return d.toLocaleDateString(undefined, {
       day: "2-digit",
       month: "2-digit",
       year: "2-digit",
@@ -391,14 +391,14 @@ export default function AdminPage() {
         >
           <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
             <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
-              Desativar {confirmToggle.label}?
+              Disable {confirmToggle.label}?
             </h2>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Tem certeza que deseja desativar{" "}
+              Are you sure you want to disable{" "}
               <span className="font-medium text-stone-700 dark:text-stone-200">
                 {confirmToggle.label}
               </span>
-              ? A alteração terá efeito imediato.
+              ? The change takes effect immediately.
             </p>
             <div className="flex gap-2">
               <button
@@ -410,13 +410,13 @@ export default function AdminPage() {
                 }}
                 className="flex-1 bg-red-600 text-white rounded-lg py-2 text-sm hover:bg-red-700 transition-colors"
               >
-                Desativar
+                Disable
               </button>
               <button
                 onClick={() => setConfirmToggle(null)}
                 className="flex-1 bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 rounded-lg py-2 text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-600 transition-colors"
               >
-                Cancelar
+                Cancel
               </button>
             </div>
           </div>
@@ -432,14 +432,14 @@ export default function AdminPage() {
         >
           <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
             <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
-              Usuário criado
+              User created
             </h2>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Envie a senha abaixo para{" "}
+              Send the password below to{" "}
               <span className="font-medium text-stone-700 dark:text-stone-200">
                 {generatedUser}
               </span>
-              . Ela não será exibida novamente.
+              . It won't be shown again.
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 bg-stone-100 dark:bg-stone-700 rounded-lg px-3 py-2 text-sm font-mono text-stone-800 dark:text-stone-100 select-all">
@@ -449,14 +449,14 @@ export default function AdminPage() {
                 onClick={copyPassword}
                 className="text-xs bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-3 py-2 hover:opacity-80 transition-opacity whitespace-nowrap"
               >
-                {copied ? "Copiado!" : "Copiar"}
+                {copied ? "Copied!" : "Copy"}
               </button>
             </div>
             <button
               onClick={() => setGeneratedPassword(null)}
               className="w-full border border-stone-200 dark:border-stone-700 rounded-lg py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
             >
-              Fechar
+              Close
             </button>
           </div>
         </div>
@@ -503,7 +503,7 @@ export default function AdminPage() {
           )}
           {!isAuthenticated ? (
             <div className="text-center text-stone-400 dark:text-stone-500 py-16">
-              <p className="mb-4">Faça login para acessar o painel admin.</p>
+              <p className="mb-4">Log in to access the admin panel.</p>
               <button
                 onClick={login}
                 className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-4 py-2 hover:opacity-80 transition-opacity"
@@ -513,7 +513,7 @@ export default function AdminPage() {
             </div>
           ) : !isAdmin ? (
             <div className="text-center text-stone-400 dark:text-stone-500 py-16">
-              <p>Acesso restrito a administradores.</p>
+              <p>Access restricted to administrators.</p>
             </div>
           ) : authLoading ? (
             <div className="flex justify-center py-16">
@@ -527,7 +527,7 @@ export default function AdminPage() {
                   className={tabClass("users")}
                   onClick={() => setTab("users")}
                 >
-                  Usuários
+                  Users
                   {pendingData.total > 0 && (
                     <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-amber-500 text-white">
                       {pendingData.total}
@@ -552,12 +552,12 @@ export default function AdminPage() {
               {tab === "users" && (
                 <>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-semibold">Usuários</h2>
+                    <h2 className="text-lg font-semibold">Users</h2>
                     <button
                       onClick={() => setShowCreate(!showCreate)}
                       className="text-sm bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg px-3 py-1.5 hover:opacity-80 transition-opacity"
                     >
-                      + Criar usuário
+                      + Create user
                     </button>
                   </div>
 
@@ -566,14 +566,14 @@ export default function AdminPage() {
                       <input
                         autoFocus
                         type="text"
-                        placeholder="Usuário"
+                        placeholder="Username"
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && createUser()}
                         className="border border-stone-200 dark:border-stone-600 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 placeholder:text-stone-400"
                       />
                       <p className="text-xs text-stone-400">
-                        A senha será gerada automaticamente.
+                        A password will be generated automatically.
                       </p>
                       {error && <p className="text-xs text-red-500">{error}</p>}
                       <div className="flex gap-2">
@@ -582,7 +582,7 @@ export default function AdminPage() {
                           disabled={loading}
                           className="flex-1 bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm hover:opacity-80 transition-opacity disabled:opacity-50"
                         >
-                          {loading ? "Criando..." : "Criar"}
+                          {loading ? "Creating..." : "Create"}
                         </button>
                         <button
                           onClick={() => {
@@ -591,7 +591,7 @@ export default function AdminPage() {
                           }}
                           className="flex-1 border border-stone-200 dark:border-stone-700 rounded-lg py-2 text-sm hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                         >
-                          Cancelar
+                          Cancel
                         </button>
                       </div>
                     </div>
@@ -602,7 +602,7 @@ export default function AdminPage() {
                     <div className="mb-6">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400">
-                          Pendentes ({pendingData.total})
+                          Pending ({pendingData.total})
                         </h3>
                       </div>
                       <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-amber-200 dark:border-amber-700/50 rounded-xl overflow-hidden">
@@ -615,20 +615,20 @@ export default function AdminPage() {
                               {u.username}
                             </span>
                             <span className="text-xs text-amber-600 dark:text-amber-400 mr-4">
-                              pendente
+                              pending
                             </span>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => approveUser(u.id)}
                                 className="text-xs text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors"
                               >
-                                Aprovar
+                                Approve
                               </button>
                               <button
                                 onClick={() => deleteUser(u.id, false)}
                                 className="text-xs text-red-400 hover:text-red-600 transition-colors"
                               >
-                                Recusar
+                                Reject
                               </button>
                             </div>
                           </div>
@@ -645,13 +645,13 @@ export default function AdminPage() {
                   {/* Approved users */}
                   <div className="mb-3">
                     <h3 className="text-sm font-medium text-stone-500 dark:text-stone-400">
-                      Aprovados ({approvedData.total})
+                      Approved ({approvedData.total})
                     </h3>
                   </div>
                   <div className="divide-y divide-stone-100 dark:divide-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl overflow-hidden">
                     {approvedData.items.length === 0 ? (
                       <p className="text-sm text-stone-400 text-center py-8">
-                        Nenhum usuário aprovado.
+                        No approved users.
                       </p>
                     ) : (
                       approvedData.items.map((u) => (
@@ -679,7 +679,7 @@ export default function AdminPage() {
                                 onClick={() => deleteUser(u.id, true)}
                                 className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
                               >
-                                Remover
+                                Delete
                               </button>
                             )}
                           </div>
@@ -702,7 +702,7 @@ export default function AdminPage() {
                     <h2 className="text-lg font-semibold">Settings</h2>
                     {settingsSaved && (
                       <span className="text-sm text-green-600 dark:text-green-400">
-                        Salvo!
+                        Saved!
                       </span>
                     )}
                   </div>
@@ -712,11 +712,10 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium">
-                          Modo de manutenção
+                          Maintenance mode
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Quando ativo, bloqueia edição de pads e upload de
-                          arquivos.
+                          When active, blocks pad editing and file uploads.
                         </span>
                       </div>
                       <button
@@ -724,7 +723,7 @@ export default function AdminPage() {
                           if (settings.maintenanceMode) {
                             setConfirmToggle({
                               field: "maintenanceMode",
-                              label: "modo de manutenção",
+                              label: "maintenance mode",
                             });
                           } else {
                             const updated = {
@@ -748,10 +747,10 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium">
-                          Bloquear arquivos
+                          Block files
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Impede upload de arquivos nos pads.
+                          Prevents file uploads on pads.
                         </span>
                       </div>
                       <button
@@ -759,7 +758,7 @@ export default function AdminPage() {
                           if (settings.blockFiles) {
                             setConfirmToggle({
                               field: "blockFiles",
-                              label: "bloqueio de arquivos",
+                              label: "file blocking",
                             });
                           } else {
                             const updated = { ...settings, blockFiles: true };
@@ -780,10 +779,10 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium">
-                          Dias para apagar pads inativos
+                          Days before inactive pads are deleted
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Pads sem edição serão removidos após esse período.
+                          Pads without edits are removed after this period.
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -814,7 +813,7 @@ export default function AdminPage() {
                           className="w-24 border border-stone-200 dark:border-stone-600 rounded-lg pl-3 pr-1 py-1.5 text-sm bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 text-right focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 [&::-webkit-inner-spin-button]:ml-2 [&::-webkit-inner-spin-button]:opacity-100"
                         />
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          dias
+                          days
                         </span>
                       </div>
                     </div>
@@ -823,10 +822,10 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium">
-                          Tamanho máximo de arquivo
+                          Maximum file size
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Limite máximo por arquivo no comando \file (em MB).
+                          Maximum size per file for the \file command (in MB).
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -864,16 +863,16 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between p-4 border border-stone-200 dark:border-stone-700 rounded-xl bg-white dark:bg-stone-800/50">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium">
-                          Limpar arquivos órfãos
+                          Clean orphan files
                         </span>
                         <span className="text-xs text-stone-400 dark:text-stone-500">
-                          Remove imagens no disco sem referência no banco de dados.
+                          Removes images on disk with no reference in the database.
                         </span>
                         {cleanupResult && (
                           <span className="text-xs text-green-600 dark:text-green-400 mt-1">
                             {cleanupResult.deletedFiles === 0
-                              ? "Nenhum arquivo órfão encontrado."
-                              : `${cleanupResult.deletedFiles} ${cleanupResult.deletedFiles === 1 ? "arquivo removido" : "arquivos removidos"} (${formatBytes(cleanupResult.freedBytes)} liberados)`}
+                              ? "No orphan files found."
+                              : `${cleanupResult.deletedFiles} ${cleanupResult.deletedFiles === 1 ? "file removed" : "files removed"} (${formatBytes(cleanupResult.freedBytes)} freed)`}
                           </span>
                         )}
                       </div>
@@ -882,7 +881,7 @@ export default function AdminPage() {
                         disabled={cleanupLoading}
                         className="text-sm bg-red-600 text-white rounded-lg px-4 py-2 hover:bg-red-700 transition-colors disabled:opacity-50 whitespace-nowrap"
                       >
-                        {cleanupLoading ? "Limpando..." : "Limpar"}
+                        {cleanupLoading ? "Cleaning..." : "Clean"}
                       </button>
                     </div>
                   </div>
@@ -896,13 +895,13 @@ export default function AdminPage() {
                     <h2 className="text-lg font-semibold">Pads</h2>
                     <span className="text-sm text-stone-400 dark:text-stone-500">
                       {padsData.total} {padsData.total === 1 ? "pad" : "pads"}{" "}
-                      com conteúdo
+                      with content
                     </span>
                   </div>
 
                   <input
                     type="text"
-                    placeholder="Pesquisar por nome do pad..."
+                    placeholder="Search by pad name..."
                     value={padSearch}
                     onChange={(e) => handlePadSearch(e.target.value)}
                     className="w-full mb-4 border border-stone-200 dark:border-stone-600 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 placeholder:text-stone-400"
@@ -912,8 +911,8 @@ export default function AdminPage() {
                     {padsData.items.length === 0 ? (
                       <p className="text-sm text-stone-400 text-center py-8">
                         {padSearch.trim()
-                          ? "Nenhum pad encontrado."
-                          : "Nenhum pad com conteúdo."}
+                          ? "No pads found."
+                          : "No pads with content."}
                       </p>
                     ) : (
                       padsData.items.map((p) => (
@@ -943,7 +942,7 @@ export default function AdminPage() {
                             onClick={() => deletePad(p.id, p.path)}
                             className="text-xs font-medium text-red-500 hover:text-red-700 transition-colors whitespace-nowrap"
                           >
-                            Remover
+                            Delete
                           </button>
                         </div>
                       ))

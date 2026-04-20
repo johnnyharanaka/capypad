@@ -49,10 +49,10 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
     if (authStatus === "pending") {
-      return "Conta criada! Aguarde aprovação do administrador.";
+      return "Account created! Awaiting admin approval.";
     }
     if (authStatus === "error") {
-      return "Houve um erro na autenticação.";
+      return "Authentication error.";
     }
     return null;
   });
@@ -214,7 +214,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         </a>
         {lastEditedBy && (
           <span className="text-[11px] text-stone-400/70 dark:text-stone-500/70 hidden sm:inline truncate max-w-[150px]">
-            · editado por {lastEditedBy}
+            · edited by {lastEditedBy}
           </span>
         )}
         <div className="flex-1 min-w-0" />
@@ -264,7 +264,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
                   : "hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-400 dark:text-stone-500"
               }`}
               aria-label={previewMode ? "Switch to edit mode" : "Switch to preview mode"}
-              title={previewMode ? "Modo edição" : "Modo preview"}
+              title={previewMode ? "Edit mode" : "Preview mode"}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -281,14 +281,14 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-sky-50/70 dark:bg-sky-900/20 text-sky-800 dark:text-sky-200 flex items-center gap-2">
           <LockIcon className="w-3.5 h-3.5 shrink-0" />
           <span>
-            Modo leitura.{" "}
+            Read-only mode.{" "}
             <button
               onClick={login}
               className="underline underline-offset-2 hover:text-sky-600 dark:hover:text-sky-100 transition-colors font-medium"
             >
-              Faça login
+              Log in
             </button>{" "}
-            para editar este pad.
+            to edit this pad.
           </span>
         </div>
       )}
@@ -333,23 +333,23 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         >
           <div className="bg-white dark:bg-stone-800 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 flex flex-col gap-4">
             <h2 className="text-base font-semibold text-stone-800 dark:text-stone-100">
-              Login necessário
+              Login required
             </h2>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Faça login para editar este pad.
+              Log in to edit this pad.
             </p>
             <div className="flex gap-2">
               <button
                 onClick={login}
                 className="flex-1 bg-stone-800 dark:bg-stone-100 text-stone-100 dark:text-stone-800 rounded-lg py-2 text-sm hover:opacity-80 transition-opacity"
               >
-                Fazer login
+                Log in
               </button>
               <button
                 onClick={() => setShowLoginModal(false)}
                 className="flex-1 bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 rounded-lg py-2 text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-600 transition-colors"
               >
-                Cancelar
+                Cancel
               </button>
             </div>
           </div>
