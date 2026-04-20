@@ -146,8 +146,8 @@ cd frontend && npm test
 
 ## Deployment
 
-- General deployment guide: `DEPLOY.md`
-- Keycloak production setup: `docs/keycloak-production.md`
+- General deployment guide: [`docs/deploy.md`](docs/deploy.md)
+- Keycloak production setup: [`docs/keycloak-production.md`](docs/keycloak-production.md)
 
 ## Security Notes
 

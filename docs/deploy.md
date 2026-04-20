@@ -1,24 +1,32 @@
 # CapyPad — Deployment Guide
 
-For Keycloak hardening and realm setup in production, also read: `docs/keycloak-production.md`.
+For Keycloak hardening and realm setup in production, also read: [`keycloak-production.md`](keycloak-production.md).
 
 ## Frontend (GitHub Pages)
 
-The frontend deploys automatically to `yourdomain.com/capypad` via GitHub Actions.
+The frontend deploys automatically to the configured custom domain via GitHub Actions.
 
 **How it works:**
 
-- Push to `main` triggers `.github/workflows/deploy.yml`
-- Builds the Vite app with `base: /capypad/`
+- Push to `main` under `frontend/**` triggers `.github/workflows/deploy.yml`
+- Installs deps, writes `frontend/.env.production` from the `ENV_FRONTEND` secret
+- Builds the Vite app (served from `/` — see `base` in `vite.config.ts`)
+- Copies `index.html` → `404.html` for SPA client-side routing
+- Writes a `CNAME` file pointing to the custom domain
 - Deploys the `dist/` folder to the `gh-pages` branch
-- GitHub Pages serves it at `yourdomain.com/capypad`
+
+**Required GitHub secrets:**
+
+- `ENV_FRONTEND` — full contents of `frontend/.env.production` (e.g. `VITE_API_URL=https://api.yourdomain.com`)
 
 **First-time setup:**
 
 1. Go to the repo **Settings → Pages**
 2. Set Source to **Deploy from a branch**
 3. Select branch `gh-pages` / `/ (root)`
-4. If using a custom domain, ensure the CNAME is configured on your GitHub Pages host
+4. Under **Custom domain**, enter your domain (e.g. `capypad.yourdomain.com`) and enable **Enforce HTTPS**
+5. Add a DNS `CNAME` record pointing that subdomain to `<your-gh-user>.github.io`
+6. Update the `CNAME` step in `.github/workflows/deploy.yml` to match your domain
 
 **Manual deploy:**
 
@@ -26,6 +34,7 @@ The frontend deploys automatically to `yourdomain.com/capypad` via GitHub Action
 cd frontend
 npm ci && npm run build
 cp dist/index.html dist/404.html
+echo "capypad.yourdomain.com" > dist/CNAME
 # Push dist/ contents to gh-pages branch
 ```
 
@@ -99,9 +108,18 @@ docker compose up -d --build
 
 ### Data Persistence
 
-The H2 database and uploaded images are stored in a Docker volume (`capypad-data`), so data persists across container rebuilds.
+- PostgreSQL data lives in the `postgres-data` Docker volume.
+- Uploaded images and files live in the `capypad-data` volume (mounted at `/app/data` inside the backend container).
 
-To backup:
+Both persist across container rebuilds.
+
+To backup the database:
+
+```bash
+docker compose exec postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
+```
+
+To backup uploaded files:
 
 ```bash
 docker compose exec backend tar czf /tmp/backup.tar.gz /app/data
