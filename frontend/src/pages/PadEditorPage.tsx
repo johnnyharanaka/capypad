@@ -156,6 +156,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
     fetch(`${API}/api/pad/${padPath}`, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
+        suppressSaveRef.current = true;
         setContent(data.content);
         setLastEditedBy(data.lastEditedBy ?? null);
         setClaimed(data.claimed ?? false);
@@ -168,7 +169,10 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
           uploadBlockReason: data.uploadBlockReason ?? null,
         });
       })
-      .catch(() => setContent(""));
+      .catch(() => {
+        suppressSaveRef.current = true;
+        setContent("");
+      });
   }, [padPath, applyUploadLimits]);
 
   const canEdit = isAuthenticated || !claimed;
