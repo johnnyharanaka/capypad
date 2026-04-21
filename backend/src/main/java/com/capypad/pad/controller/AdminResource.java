@@ -170,13 +170,13 @@ public class AdminResource {
     @Path("/settings")
     public SiteSettingsDto getSettings() {
         SiteSettings s = siteSettingsService.get();
-        return new SiteSettingsDto(s.maintenanceMode, s.blockFiles, s.cleanupMaxAgeDays, s.maxFileBytes);
+        return new SiteSettingsDto(s.maintenanceMode, s.blockFiles, s.cleanupMaxAgeDays, s.unclaimedCleanupMaxAgeHours, s.maxFileBytes);
     }
 
     @PUT
     @Path("/settings")
     public SiteSettingsDto updateSettings(SiteSettingsDto dto) {
-        SiteSettings s = siteSettingsService.update(dto.maintenanceMode(), dto.blockFiles(), dto.cleanupMaxAgeDays(), dto.maxFileBytes());
-        return new SiteSettingsDto(s.maintenanceMode, s.blockFiles, s.cleanupMaxAgeDays, s.maxFileBytes);
+        SiteSettings s = siteSettingsService.update(dto.maintenanceMode(), dto.blockFiles(), dto.cleanupMaxAgeDays(), dto.unclaimedCleanupMaxAgeHours(), dto.maxFileBytes());
+        return new SiteSettingsDto(s.maintenanceMode, s.blockFiles, s.cleanupMaxAgeDays, s.unclaimedCleanupMaxAgeHours, s.maxFileBytes);
     }
 }

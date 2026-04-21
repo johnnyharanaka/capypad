@@ -4,5 +4,6 @@ public record SiteSettingsDto(
         boolean maintenanceMode,
         boolean blockFiles,
         int cleanupMaxAgeDays,
+        int unclaimedCleanupMaxAgeHours,
         long maxFileBytes
 ) {}

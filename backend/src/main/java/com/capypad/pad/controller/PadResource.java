@@ -185,7 +185,8 @@ public class PadResource {
                     totalBytes, maxBytesPerPad,
                     true, "File uploads are disabled.",
                     settings.maintenanceMode, true,
-                    lastEditedBy, claimed
+                    lastEditedBy, claimed,
+                    settings.unclaimedCleanupMaxAgeHours
             );
         }
 
@@ -196,7 +197,8 @@ public class PadResource {
                 limits.totalImageBytes(), limits.totalImageBytesLimit(),
                 limits.uploadBlocked(), limits.uploadBlockReason(),
                 settings.maintenanceMode, false,
-                lastEditedBy, claimed
+                lastEditedBy, claimed,
+                settings.unclaimedCleanupMaxAgeHours
         );
     }
 

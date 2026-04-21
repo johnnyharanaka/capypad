@@ -12,6 +12,7 @@ public record PadDto(
 	boolean maintenanceMode,
 	boolean blockFiles,
 	String lastEditedBy,
-	boolean claimed
+	boolean claimed,
+	int unclaimedMaxAgeHours
 ) {
 }

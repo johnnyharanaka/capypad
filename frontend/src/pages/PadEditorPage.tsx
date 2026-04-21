@@ -39,6 +39,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lastEditedBy, setLastEditedBy] = useState<string | null>(null);
   const [claimed, setClaimed] = useState(false);
+  const [unclaimedMaxAgeHours, setUnclaimedMaxAgeHours] = useState(8);
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
@@ -134,11 +135,13 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       uploadBlockReason: string | null;
       lastEditedBy?: string | null;
       claimed?: boolean;
+      unclaimedMaxAgeHours?: number;
     }) => {
       // Skip if the user is actively typing (avoids clobbering cursor/edits).
       if (Date.now() - lastLocalEditAt.current < 800) return;
       if (pad.lastEditedBy !== undefined) setLastEditedBy(pad.lastEditedBy ?? null);
       if (pad.claimed !== undefined) setClaimed(pad.claimed);
+      if (typeof pad.unclaimedMaxAgeHours === "number") setUnclaimedMaxAgeHours(pad.unclaimedMaxAgeHours);
       if (pad.content === contentRef.current) {
         applyUploadLimits(pad);
         return;
@@ -160,6 +163,9 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         setContent(data.content);
         setLastEditedBy(data.lastEditedBy ?? null);
         setClaimed(data.claimed ?? false);
+        if (typeof data.unclaimedMaxAgeHours === "number") {
+          setUnclaimedMaxAgeHours(data.unclaimedMaxAgeHours);
+        }
         applyUploadLimits({
           imageCount: data.imageCount ?? 0,
           imageCountLimit: data.imageCountLimit ?? 20,
@@ -307,7 +313,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
         <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-stone-100/70 dark:bg-stone-800/40 text-stone-600 dark:text-stone-300 flex items-center gap-2">
           <LockIcon className="w-3.5 h-3.5 shrink-0" />
           <span>
-            Guest mode — text only, pad expires in 8 hours.{" "}
+            Guest mode — text only, pad expires in {unclaimedMaxAgeHours} {unclaimedMaxAgeHours === 1 ? "hour" : "hours"}.{" "}
             <button
               onClick={login}
               className="underline underline-offset-2 hover:text-stone-800 dark:hover:text-stone-100 transition-colors font-medium"

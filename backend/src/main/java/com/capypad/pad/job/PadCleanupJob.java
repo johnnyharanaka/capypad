@@ -4,11 +4,11 @@ import com.capypad.pad.model.Pad;
 import com.capypad.pad.model.PadImage;
 import com.capypad.pad.service.ImageStorageService;
 import com.capypad.pad.service.SiteSettingsService;
+import com.capypad.pad.model.SiteSettings;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
@@ -21,9 +21,6 @@ public class PadCleanupJob {
 
     private static final Logger LOG = Logger.getLogger(PadCleanupJob.class);
 
-    @ConfigProperty(name = "capypad.cleanup.unclaimed-max-age-hours", defaultValue = "8")
-    int unclaimedMaxAgeHours;
-
     @Inject
     SiteSettingsService siteSettingsService;
 
@@ -33,7 +30,9 @@ public class PadCleanupJob {
     @Scheduled(every = "${capypad.cleanup.interval:24h}")
     @Transactional
     public void cleanup() {
-        int maxAgeDays = siteSettingsService.get().cleanupMaxAgeDays;
+        SiteSettings settings = siteSettingsService.get();
+        int maxAgeDays = settings.cleanupMaxAgeDays;
+        int unclaimedMaxAgeHours = settings.unclaimedCleanupMaxAgeHours;
         Instant claimedCutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
         Instant unclaimedCutoff = Instant.now().minus(unclaimedMaxAgeHours, ChronoUnit.HOURS);
 

@@ -18,6 +18,10 @@ public class SiteSettings extends PanacheEntity {
     @Column(name = "cleanup_max_age_days", nullable = false)
     public int cleanupMaxAgeDays = 30;
 
+    @org.hibernate.annotations.ColumnDefault("8")
+    @Column(name = "unclaimed_cleanup_max_age_hours", nullable = false)
+    public int unclaimedCleanupMaxAgeHours = 8;
+
     @org.hibernate.annotations.ColumnDefault("10485760")
     @Column(name = "max_file_bytes", nullable = false)
     public long maxFileBytes = 10485760L;
