@@ -24,6 +24,9 @@ public class Pad extends PanacheEntity {
     @Column(name = "last_edited_by")
     public String lastEditedBy;
 
+    @Column(name = "claimed_by")
+    public String claimedBy;
+
     @PrePersist
     @PreUpdate
     void touchTimestamp() {

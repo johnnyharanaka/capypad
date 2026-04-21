@@ -11,6 +11,7 @@ public record PadDto(
 	String uploadBlockReason,
 	boolean maintenanceMode,
 	boolean blockFiles,
-	String lastEditedBy
+	String lastEditedBy,
+	boolean claimed
 ) {
 }

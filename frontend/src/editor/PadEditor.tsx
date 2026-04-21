@@ -95,6 +95,7 @@ interface Props {
   dark: boolean;
   padPath: string;
   readOnly?: boolean;
+  allowUploads?: boolean;
   uploadBlocked: boolean;
   uploadBlockReason: string | null;
   onUploadLimitsUpdate: (next: {
@@ -115,6 +116,7 @@ export default function PadCodeEditor({
   dark,
   padPath,
   readOnly = false,
+  allowUploads = true,
   uploadBlocked,
   uploadBlockReason,
   onUploadLimitsUpdate,
@@ -289,6 +291,10 @@ export default function PadCodeEditor({
           for (const item of items) {
             if (item.type.startsWith("image/")) {
               event.preventDefault();
+              if (!allowUploads) {
+                onUploadError("Log in to upload images.");
+                return true;
+              }
               if (!ALLOWED_IMAGE_TYPES.has(item.type)) {
                 onUploadError(UNSUPPORTED_IMAGE_MESSAGE);
                 return true;
@@ -332,6 +338,10 @@ export default function PadCodeEditor({
               if (droppedImages.length === 0) return;
               e.preventDefault();
               e.stopPropagation();
+              if (!allowUploads) {
+                onUploadError("Log in to upload images.");
+                return;
+              }
               const imageFiles = droppedImages.filter((f) =>
                 ALLOWED_IMAGE_TYPES.has(f.type),
               );
@@ -386,6 +396,7 @@ export default function PadCodeEditor({
     [
       padPath,
       readOnly,
+      allowUploads,
       uploadBlocked,
       uploadBlockReason,
       onUploadLimitsUpdate,

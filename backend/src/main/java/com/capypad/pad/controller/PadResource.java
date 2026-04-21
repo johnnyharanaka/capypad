@@ -6,12 +6,13 @@ import com.capypad.pad.dto.UploadLimitStatus;
 import com.capypad.pad.model.Pad;
 import com.capypad.pad.model.PadImage;
 import com.capypad.pad.model.SiteSettings;
+import com.capypad.pad.service.AnonymousContentSanitizer;
 import com.capypad.pad.service.ImageStorageService;
 import com.capypad.pad.service.PadBroadcastService;
 import com.capypad.pad.service.PadCreationLimiter;
 import com.capypad.pad.service.SiteSettingsService;
 import com.capypad.pad.service.UploadLimitService;
-import jakarta.annotation.security.RolesAllowed;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
@@ -24,7 +25,6 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.nio.charset.StandardCharsets;
@@ -65,6 +65,9 @@ public class PadResource {
     @Inject
     PadBroadcastService broadcaster;
 
+    @Inject
+    SecurityIdentity securityIdentity;
+
     /** Only letters, digits, dots, hyphens and underscores — max 100 chars. */
     private static final Pattern VALID_PATH = Pattern.compile("^[a-z0-9][a-z0-9._-]{0,99}$");
 
@@ -82,29 +85,35 @@ public class PadResource {
         String normalized = path.toLowerCase();
         validatePath(normalized);
         Pad pad = Pad.findByPath(normalized);
-        return toPadDto(normalized, pad != null ? pad.content : "", pad != null ? pad.lastEditedBy : null);
+        return toPadDto(
+                normalized,
+                pad != null ? pad.content : "",
+                pad != null ? pad.lastEditedBy : null,
+                pad != null && pad.claimedBy != null);
     }
 
     @PUT
     @Path("/{path}")
     @Transactional
-    @RolesAllowed({"USER", "ADMIN"})
     public Response put(
             @PathParam("path") String path,
             PadUpdateDto dto,
-            @Context HttpHeaders headers,
-            @Context SecurityContext securityContext) {
+            @Context HttpHeaders headers) {
         String normalized = path.toLowerCase();
         validatePath(normalized);
 
         SiteSettings settings = siteSettingsService.get();
         if (settings.maintenanceMode) {
             return Response.status(Response.Status.SERVICE_UNAVAILABLE)
-                    .entity("O site está em modo de manutenção. Edições estão desabilitadas.")
+                    .entity("Site is under maintenance. Edits are disabled.")
                     .build();
         }
 
+        boolean authenticated = !securityIdentity.isAnonymous();
         String content = dto != null && dto.content() != null ? dto.content() : "";
+        if (!authenticated) {
+            content = AnonymousContentSanitizer.sanitize(content);
+        }
         int contentBytes = content.getBytes(StandardCharsets.UTF_8).length;
         if (contentBytes > maxContentBytes) {
             return Response.status(413)
@@ -113,6 +122,11 @@ public class PadResource {
         }
 
         Pad pad = Pad.findByPath(normalized);
+        if (pad != null && pad.claimedBy != null && !authenticated) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("This pad has been claimed by a registered user. Log in to edit.")
+                    .build();
+        }
         if (pad == null) {
             String clientIp = resolveClientIp(headers);
             if (!padCreationLimiter.tryAllow(clientIp)) {
@@ -125,8 +139,12 @@ public class PadResource {
             pad.path = normalized;
         }
         pad.content = content;
-        if (securityContext.getUserPrincipal() != null) {
-            pad.lastEditedBy = securityContext.getUserPrincipal().getName();
+        if (authenticated) {
+            String username = securityIdentity.getPrincipal().getName();
+            pad.lastEditedBy = username;
+            if (pad.claimedBy == null) {
+                pad.claimedBy = username;
+            }
         }
         pad.persist();
 
@@ -147,13 +165,13 @@ public class PadResource {
             }
         }
 
-        PadDto result = toPadDto(normalized, pad.content, pad.lastEditedBy);
+        PadDto result = toPadDto(normalized, pad.content, pad.lastEditedBy, pad.claimedBy != null);
         String clientId = headers.getHeaderString("X-Client-Id");
         broadcaster.publish(normalized, clientId, result);
         return Response.ok(result).build();
     }
 
-    private PadDto toPadDto(String normalized, String content, String lastEditedBy) {
+    private PadDto toPadDto(String normalized, String content, String lastEditedBy, boolean claimed) {
         SiteSettings settings = siteSettingsService.get();
         boolean filesBlocked = settings.blockFiles;
 
@@ -165,9 +183,9 @@ public class PadResource {
                     normalized, content,
                     imageCount, maxImagesPerPad,
                     totalBytes, maxBytesPerPad,
-                    true, "Upload de arquivos está desabilitado.",
+                    true, "File uploads are disabled.",
                     settings.maintenanceMode, true,
-                    lastEditedBy
+                    lastEditedBy, claimed
             );
         }
 
@@ -178,7 +196,7 @@ public class PadResource {
                 limits.totalImageBytes(), limits.totalImageBytesLimit(),
                 limits.uploadBlocked(), limits.uploadBlockReason(),
                 settings.maintenanceMode, false,
-                lastEditedBy
+                lastEditedBy, claimed
         );
     }
 

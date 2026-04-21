@@ -8,16 +8,21 @@ import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 
 @ApplicationScoped
 public class PadCleanupJob {
 
     private static final Logger LOG = Logger.getLogger(PadCleanupJob.class);
+
+    @ConfigProperty(name = "capypad.cleanup.unclaimed-max-age-hours", defaultValue = "8")
+    int unclaimedMaxAgeHours;
 
     @Inject
     SiteSettingsService siteSettingsService;
@@ -29,8 +34,12 @@ public class PadCleanupJob {
     @Transactional
     public void cleanup() {
         int maxAgeDays = siteSettingsService.get().cleanupMaxAgeDays;
-        Instant cutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
-        List<Pad> expired = Pad.list("updatedAt < ?1", cutoff);
+        Instant claimedCutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
+        Instant unclaimedCutoff = Instant.now().minus(unclaimedMaxAgeHours, ChronoUnit.HOURS);
+
+        List<Pad> expired = new ArrayList<>();
+        expired.addAll(Pad.list("claimedBy is not null and updatedAt < ?1", claimedCutoff));
+        expired.addAll(Pad.list("claimedBy is null and updatedAt < ?1", unclaimedCutoff));
 
         for (Pad pad : expired) {
             List<PadImage> images = PadImage.findByPadPath(pad.path);
@@ -42,7 +51,8 @@ public class PadCleanupJob {
         }
 
         if (!expired.isEmpty()) {
-            LOG.infof("Cleaned up %d pads not updated in %d days", expired.size(), maxAgeDays);
+            LOG.infof("Cleaned up %d pads (claimed TTL %dd, unclaimed TTL %dh)",
+                    expired.size(), maxAgeDays, unclaimedMaxAgeHours);
         }
     }
 }

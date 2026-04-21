@@ -38,13 +38,14 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
   );
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lastEditedBy, setLastEditedBy] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
   const [dark, toggle] = useDarkMode();
   const { words, chars } = useWordCount(content);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const { isAuthenticated, isAdmin, username, login, logout, loading } =
     useAuth();
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [authMsg, setAuthMsg] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const authStatus = params.get("auth");
@@ -132,10 +133,12 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       uploadBlocked: boolean;
       uploadBlockReason: string | null;
       lastEditedBy?: string | null;
+      claimed?: boolean;
     }) => {
       // Skip if the user is actively typing (avoids clobbering cursor/edits).
       if (Date.now() - lastLocalEditAt.current < 800) return;
       if (pad.lastEditedBy !== undefined) setLastEditedBy(pad.lastEditedBy ?? null);
+      if (pad.claimed !== undefined) setClaimed(pad.claimed);
       if (pad.content === contentRef.current) {
         applyUploadLimits(pad);
         return;
@@ -155,6 +158,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       .then((data) => {
         setContent(data.content);
         setLastEditedBy(data.lastEditedBy ?? null);
+        setClaimed(data.claimed ?? false);
         applyUploadLimits({
           imageCount: data.imageCount ?? 0,
           imageCountLimit: data.imageCountLimit ?? 20,
@@ -167,8 +171,9 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
       .catch(() => setContent(""));
   }, [padPath, applyUploadLimits]);
 
+  const canEdit = isAuthenticated || !claimed;
   useEffect(() => {
-    if (content === null || !isAuthenticated) return;
+    if (content === null || !canEdit) return;
     if (suppressSaveRef.current) {
       suppressSaveRef.current = false;
       return;
@@ -188,12 +193,14 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
           if (res.status === 401) {
             logout();
             login();
+          } else if (res.status === 403) {
+            setClaimed(true);
           }
         })
         .finally(() => setSaving(false));
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [content, padPath, isAuthenticated, logout, login, clientId]);
+  }, [content, padPath, canEdit, logout, login, clientId]);
 
   const handleLocalChange = useCallback((next: string) => {
     lastLocalEditAt.current = Date.now();
@@ -277,7 +284,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
           <ThemeToggle dark={dark} toggle={toggle} />
         </div>
       </header>
-      {!loading && !isAuthenticated && !authMsg && (
+      {!loading && !isAuthenticated && !authMsg && claimed && (
         <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-sky-50/70 dark:bg-sky-900/20 text-sky-800 dark:text-sky-200 flex items-center gap-2">
           <LockIcon className="w-3.5 h-3.5 shrink-0" />
           <span>
@@ -289,6 +296,21 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
               Log in
             </button>{" "}
             to edit this pad.
+          </span>
+        </div>
+      )}
+      {!loading && !isAuthenticated && !authMsg && !claimed && (
+        <div className="px-3 sm:px-6 md:px-12 py-2 text-xs border-b border-stone-200/60 dark:border-stone-700/60 bg-stone-100/70 dark:bg-stone-800/40 text-stone-600 dark:text-stone-300 flex items-center gap-2">
+          <LockIcon className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            Guest mode — text only, pad expires in 8 hours.{" "}
+            <button
+              onClick={login}
+              className="underline underline-offset-2 hover:text-stone-800 dark:hover:text-stone-100 transition-colors font-medium"
+            >
+              Log in
+            </button>{" "}
+            for images, files, links, and longer retention.
           </span>
         </div>
       )}
@@ -311,7 +333,8 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
             onChange={handleLocalChange}
             dark={dark}
             padPath={padPath}
-            readOnly={!isAuthenticated}
+            readOnly={!canEdit}
+            allowUploads={isAuthenticated}
             uploadBlocked={uploadBlocked}
             uploadBlockReason={uploadBlockReason}
             onUploadLimitsUpdate={applyUploadLimits}
@@ -336,7 +359,7 @@ export default function PadEditorPage({ padPath }: { padPath: string }) {
               Login required
             </h2>
             <p className="text-sm text-stone-500 dark:text-stone-400">
-              Log in to edit this pad.
+              This pad is claimed by a registered user. Log in to edit.
             </p>
             <div className="flex gap-2">
               <button
