@@ -58,8 +58,8 @@ cd capypad
 # Review/edit production env
 nano backend/.env.production
 
-# Build and start
-docker compose up -d --build
+# Build and start (prod overlay switches Keycloak from start-dev to start)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 # Check logs
 docker compose logs -f backend
@@ -103,7 +103,7 @@ Caddy handles HTTPS automatically.
 ```bash
 cd capypad
 git pull
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 ### Data Persistence

@@ -6,6 +6,7 @@ on:
     paths:
       - 'backend/**'
       - 'docker-compose.yml'
+      - 'docker-compose.prod.yml'
   workflow_dispatch:
 
 jobs:
@@ -18,7 +19,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
           cache: maven
           cache-dependency-path: backend/pom.xml
 
@@ -59,5 +60,5 @@ jobs:
           ssh -i ~/.ssh/id_deploy root@${{ secrets.DROPLET_IP }} << 'EOF'
             cd /root/capypad
             cp backend/.env.production backend/.env
-            docker compose up -d --build --force-recreate
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --force-recreate
           EOF
