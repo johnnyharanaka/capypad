@@ -26,6 +26,8 @@ public class AuthResource {
     private static final Logger LOG = Logger.getLogger(AuthResource.class);
     private static final String COOKIE_NAME = "capypad_jwt";
     private static final String ID_TOKEN_COOKIE_NAME = "capypad_id_token";
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "capypad_refresh";
+    private static final String AUTH_COOKIE_PATH = "/api/auth";
     private static final String PKCE_COOKIE_NAME = "capypad_pkce";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -37,6 +39,9 @@ public class AuthResource {
 
     @ConfigProperty(name = "capypad.auth.cookie.max-age-seconds", defaultValue = "86400")
     int cookieMaxAge;
+
+    @ConfigProperty(name = "capypad.auth.refresh-cookie.max-age-seconds", defaultValue = "2592000")
+    int refreshCookieMaxAge;
 
     @ConfigProperty(name = "capypad.auth.cookie.same-site", defaultValue = "Lax")
     String cookieSameSite;
@@ -158,6 +163,43 @@ public class AuthResource {
             builder.header("Set-Cookie", buildSetCookie(ID_TOKEN_COOKIE_NAME, tokenResponse.idToken()));
         }
 
+        if (tokenResponse.refreshToken() != null) {
+            builder.header("Set-Cookie", buildRefreshCookie(tokenResponse.refreshToken()));
+        }
+
+        return builder.build();
+    }
+
+    @POST
+    @Path("/refresh")
+    public Response refresh(@HeaderParam("Cookie") String cookieHeader) {
+        String refreshToken = extractCookie(cookieHeader, REFRESH_TOKEN_COOKIE_NAME);
+        if (refreshToken == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("{\"error\":\"no refresh token\"}")
+                    .build();
+        }
+
+        Optional<UserService.TokenResponse> result = userService.refreshAccessToken(refreshToken);
+        if (result.isEmpty()) {
+            // Refresh token expired or revoked — clear cookies so the client logs in again.
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .header("Set-Cookie", buildClearCookie(COOKIE_NAME))
+                    .header("Set-Cookie", buildClearCookie(ID_TOKEN_COOKIE_NAME))
+                    .header("Set-Cookie", buildClearCookie(REFRESH_TOKEN_COOKIE_NAME, AUTH_COOKIE_PATH))
+                    .entity("{\"error\":\"refresh failed\"}")
+                    .build();
+        }
+
+        UserService.TokenResponse tokens = result.get();
+        Response.ResponseBuilder builder = Response.ok("{\"expiresIn\":" + tokens.expiresIn() + "}")
+                .header("Set-Cookie", buildSetCookie(COOKIE_NAME, tokens.accessToken()))
+                .header("Set-Cookie", buildRefreshCookie(tokens.refreshToken()));
+
+        if (tokens.idToken() != null) {
+            builder.header("Set-Cookie", buildSetCookie(ID_TOKEN_COOKIE_NAME, tokens.idToken()));
+        }
+
         return builder.build();
     }
 
@@ -207,6 +249,7 @@ public class AuthResource {
         return Response.ok("{\"url\":\"" + logoutUrl.toString().replace("\"", "\\\"") + "\"}")
                 .header("Set-Cookie", buildClearCookie(COOKIE_NAME))
                 .header("Set-Cookie", buildClearCookie(ID_TOKEN_COOKIE_NAME))
+                .header("Set-Cookie", buildClearCookie(REFRESH_TOKEN_COOKIE_NAME, AUTH_COOKIE_PATH))
                 .build();
     }
 
@@ -218,6 +261,16 @@ public class AuthResource {
         sb.append("; Path=/; HttpOnly");
         sb.append("; SameSite=").append(cookieSameSite);
         sb.append("; Max-Age=").append(cookieMaxAge);
+        if (cookieSecure) sb.append("; Secure");
+        return sb.toString();
+    }
+
+    private String buildRefreshCookie(String token) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(REFRESH_TOKEN_COOKIE_NAME).append('=').append(token);
+        sb.append("; Path=").append(AUTH_COOKIE_PATH).append("; HttpOnly");
+        sb.append("; SameSite=").append(cookieSameSite);
+        sb.append("; Max-Age=").append(refreshCookieMaxAge);
         if (cookieSecure) sb.append("; Secure");
         return sb.toString();
     }

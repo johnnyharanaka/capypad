@@ -102,6 +102,47 @@ public class UserService {
     }
 
     /**
+     * Exchanges a refresh token for a fresh set of tokens.
+     * Keycloak rotates the refresh token, so the response usually carries a new one;
+     * if it doesn't, we fall back to reusing the provided refresh token.
+     */
+    public Optional<TokenResponse> refreshAccessToken(String refreshToken) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            String tokenUrl = oidcAuthServerUrl + "/protocol/openid-connect/token";
+            String form = "grant_type=refresh_token"
+                    + "&client_id=" + encode(keycloakClientId)
+                    + "&client_secret=" + encode(keycloakClientSecret)
+                    + "&refresh_token=" + encode(refreshToken);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(tokenUrl))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(form))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                JsonNode json = MAPPER.readTree(response.body());
+                return Optional.of(new TokenResponse(
+                        json.get("access_token").asText(),
+                        json.has("refresh_token") ? json.get("refresh_token").asText() : refreshToken,
+                        json.has("id_token") ? json.get("id_token").asText() : null,
+                        json.has("expires_in") ? json.get("expires_in").asInt() : 300
+                ));
+            } else {
+                JsonNode errorJson = MAPPER.readTree(response.body());
+                String errorType = errorJson.has("error") ? errorJson.get("error").asText() : "unknown";
+                LOG.warnf("Token refresh failed: %s (status %d)", errorType, response.statusCode());
+            }
+        } catch (Exception e) {
+            LOG.errorf(e, "Token refresh threw exception");
+        }
+        return Optional.empty();
+    }
+
+    /**
      * Extracts the preferred_username from a JWT access token.
      * Decodes the payload (middle part) without signature verification
      * (Quarkus OIDC will verify the signature separately).

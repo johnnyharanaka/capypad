@@ -30,3 +30,24 @@ export function clearStoredUser(): void {
   localStorage.removeItem('capypad_token');
   localStorage.removeItem('capypad_username');
 }
+
+/* ── Token refresh ─────────────────────────────────────────────────── */
+
+/**
+ * Asks the backend to swap the refresh-token cookie for a fresh access token.
+ * Returns the new access token lifetime in seconds, or null if the session
+ * could no longer be refreshed (refresh token expired/revoked or absent).
+ */
+export async function refreshSession(): Promise<number | null> {
+  try {
+    const res = await fetch(`${API}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data.expiresIn === 'number' ? data.expiresIn : 300;
+  } catch {
+    return null;
+  }
+}
