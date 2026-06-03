@@ -1,6 +1,5 @@
 package com.capypad.pad.controller;
 
-import com.capypad.pad.dto.UserSummary;
 import com.capypad.pad.model.User;
 import com.capypad.pad.service.UserService;
 import jakarta.annotation.security.PermitAll;
@@ -33,6 +32,9 @@ public class AuthResource {
 
     @Inject
     UserService userService;
+
+    @Inject
+    org.eclipse.microprofile.jwt.JsonWebToken jwt;
 
     @ConfigProperty(name = "capypad.auth.cookie.secure", defaultValue = "false")
     boolean cookieSecure;
@@ -182,10 +184,10 @@ public class AuthResource {
 
         Optional<UserService.TokenResponse> result = userService.refreshAccessToken(refreshToken);
         if (result.isEmpty()) {
-            // Refresh token expired or revoked — clear cookies so the client logs in again.
+            // Refresh failed (token expired/revoked, or a transient/raced call). Only drop the
+            // dead refresh cookie — never the access token, so a still-valid session survives a
+            // hiccup. The access token expires on its own if the session is truly gone.
             return Response.status(Response.Status.UNAUTHORIZED)
-                    .header("Set-Cookie", buildClearCookie(COOKIE_NAME))
-                    .header("Set-Cookie", buildClearCookie(ID_TOKEN_COOKIE_NAME))
                     .header("Set-Cookie", buildClearCookie(REFRESH_TOKEN_COOKIE_NAME, AUTH_COOKIE_PATH))
                     .entity("{\"error\":\"refresh failed\"}")
                     .build();
@@ -222,8 +224,22 @@ public class AuthResource {
         }
 
         User user = userOpt.get();
-        return Response.ok(new UserSummary(
-                user.id, user.username, user.role.name(), user.approved))
+        // expiresAt: epoch seconds when the current access token expires, so the
+        // client can schedule a proactive refresh without rotating the token now.
+        // 0 when there is no JWT (e.g. mocked test security) — the client then
+        // falls back to a default interval.
+        long expiresAt = 0L;
+        try {
+            expiresAt = jwt.getExpirationTime();
+        } catch (Exception ignored) {
+            // No JWT-backed identity available.
+        }
+        return Response.ok(java.util.Map.of(
+                "id", user.id,
+                "username", user.username,
+                "role", user.role.name(),
+                "approved", user.approved,
+                "expiresAt", expiresAt))
                 .build();
     }
 
