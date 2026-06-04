@@ -106,6 +106,33 @@ git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
+### Server Resources (memory / swap)
+
+The stack runs on a 2 GB droplet (Postgres + Keycloak + the capypad backend, plus the
+co-located capylink backend). Keycloak is the memory-hungry one — its container limit is
+**768M** in `docker-compose.yml`; 500M is too small for Keycloak 26 and the kernel OOM-kills
+it (`CONSTRAINT_MEMCG`), which surfaces as **502 Bad Gateway** on `/auth/...` during login
+while it restarts.
+
+A swapfile is required as a safety net (the droplet ships with **no swap**). One-time setup:
+
+```bash
+fallocate -l 2G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab   # persist across reboots
+sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' >> /etc/sysctl.conf
+```
+
+Quick health check when auth 502s:
+
+```bash
+docker stats --no-stream                          # is keycloak near its limit?
+dmesg | grep -i 'killed process'                  # cgroup OOM kills
+docker inspect capypad-keycloak --format '{{.HostConfig.Memory}}'
+```
+
 ### Data Persistence
 
 - PostgreSQL data lives in the `postgres-data` Docker volume.
