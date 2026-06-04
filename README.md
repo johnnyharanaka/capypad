@@ -4,6 +4,12 @@ CapyPad is a collaborative real-time notepad inspired by dontpad, with Obsidian-
 
 Users open a pad directly by URL path (e.g. `/my-note`), write together, and changes are persisted automatically.
 
+## Documentation
+
+- **How it works (study guide):** [English](docs/how-it-works.en.md) · [Português](docs/how-it-works.pt-BR.md) — a from-scratch walkthrough of the backend, frontend, and auth flows.
+- **Deployment guide:** [`docs/deploy.md`](docs/deploy.md)
+- **Keycloak production setup:** [`docs/keycloak-production.md`](docs/keycloak-production.md)
+
 ## Features
 
 ### Editor
@@ -75,7 +81,7 @@ Users open a pad directly by URL path (e.g. `/my-note`), write together, and cha
 - `backend/` — Quarkus API and persistence layer
 - `frontend/` — React app and editor implementation
 - `keycloak/` — Custom Keycloak login theme
-- `docs/` — Deployment and Keycloak production docs
+- `docs/` — Study guide, deployment, and Keycloak production docs
 
 ## Quick Start (Local Development)
 
