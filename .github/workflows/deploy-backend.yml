@@ -23,9 +23,9 @@ jobs:
           cache: maven
           cache-dependency-path: backend/pom.xml
 
-      - name: Build backend (Quarkus)
+      - name: Build backend (Quarkus native)
         working-directory: backend
-        run: ./mvnw clean package -DskipTests -Dquarkus.test.continuous-testing=disabled
+        run: ./mvnw clean package -DskipTests -Dnative -Dquarkus.native.container-build=true
 
       - name: Write .env.production from secret
         run: echo "${{ secrets.ENV_PRODUCTION }}" > backend/.env.production
@@ -49,11 +49,11 @@ jobs:
             -e "ssh -i ~/.ssh/id_deploy" \
             ./ root@${{ secrets.DROPLET_IP }}:/root/capypad/
 
-      - name: Copy built JAR to Droplet
+      - name: Copy native binary to Droplet
         run: |
           rsync -avz \
             -e "ssh -i ~/.ssh/id_deploy" \
-            backend/target/quarkus-app/ root@${{ secrets.DROPLET_IP }}:/root/capypad/backend/target/quarkus-app/
+            backend/target/*-runner root@${{ secrets.DROPLET_IP }}:/root/capypad/backend/target/
 
       - name: Deploy on Droplet
         run: |

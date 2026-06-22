@@ -90,7 +90,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 350M
+          memory: 160M
 
 networks:
   capypad-net:

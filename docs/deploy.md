@@ -109,10 +109,21 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ### Server Resources (memory / swap)
 
 The stack runs on a 2 GB droplet (Postgres + Keycloak + the capypad backend, plus the
-co-located capylink backend). Keycloak is the memory-hungry one — its container limit is
-**768M** in `docker-compose.yml`; 500M is too small for Keycloak 26 and the kernel OOM-kills
-it (`CONSTRAINT_MEMCG`), which surfaces as **502 Bad Gateway** on `/auth/...` during login
-while it restarts.
+co-located capylink backend). Container memory limits in `docker-compose.yml`:
+
+| Service   | Limit | Notes |
+|-----------|-------|-------|
+| postgres  | 300M  | |
+| keycloak  | 768M  | the memory-hungry one; 500M OOM-kills Keycloak 26 |
+| backend   | 160M  | **native (GraalVM) build** — was 350M on the JVM |
+
+The backend is compiled to a **native executable** (built in CI with
+`mvnw package -Dnative`, see `deploy-backend.yml`), so it idles at ~60–90M RSS instead of
+the ~250–300M a JVM needs. Adjust the limit with `docker stats` if you change extensions.
+
+Keycloak remains the memory-hungry one — 500M is too small for Keycloak 26 and the kernel
+OOM-kills it (`CONSTRAINT_MEMCG`), which surfaces as **502 Bad Gateway** on `/auth/...`
+during login while it restarts.
 
 A swapfile is required as a safety net (the droplet ships with **no swap**). One-time setup:
 
